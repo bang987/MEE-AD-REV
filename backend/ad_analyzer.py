@@ -193,17 +193,15 @@ def analyze_with_ai(text: str, keyword_result: Optional[ViolationResult] = None)
 """
 
     try:
-        response = client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "당신은 대한민국 의료법 전문가입니다."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3,
-            max_tokens=1500
+        response = client.responses.create(
+            model="gpt-5.2",
+            instructions="당신은 대한민국 의료법 전문가입니다.",
+            input=[{"role": "user", "content": prompt}],
+            max_output_tokens=1500,
+            reasoning={"effort": "high"}
         )
 
-        return response.choices[0].message.content
+        return response.output_text
 
     except Exception as e:
         return f"AI 분석 중 오류 발생: {str(e)}"
