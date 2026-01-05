@@ -2,14 +2,14 @@
 
 ## 📋 문서 정보
 - **프로젝트명**: 의료광고 AI 사전 심의 시스템
-- **버전**: MVP v3.2 (GPT-5.2 + RAG + PaddleOCR)
+- **버전**: MVP v3.3 (GPT-5.2 + RAG 선택 + PaddleOCR)
 - **목표 완료일**: 2026년 1월 14일
 - **작성일**: 2026년 1월 4일
 - **LLM**: GPT-5.2 (OpenAI Responses API + Reasoning)
-- **RAG**: Chroma 벡터 DB + OpenAI Embeddings
+- **RAG**: Chroma 벡터 DB + OpenAI Embeddings (적용/미적용 선택 가능)
 - **OCR**: Naver Clova OCR + PaddleOCR (선택 가능)
-- **진행 상황**: 90% (Day 1-8 완료, RAG 구현) → 목표 100%
-- **최종 업데이트**: 2026년 1월 6일 (RAG 구현, PDF 지원, GPT-5.2 업그레이드)
+- **진행 상황**: 92% (Day 1-8 완료, RAG 구현, RAG 옵션 추가) → 목표 100%
+- **최종 업데이트**: 2026년 1월 6일 (RAG 적용/미적용 옵션 추가)
 
 ---
 
@@ -114,6 +114,9 @@ AI/ML:
     - 문서 형식: .txt, .pdf 지원
     - 청킹: RecursiveCharacterTextSplitter (500자, 50 overlap)
     - 검색: top_k=5 유사도 검색
+    - 사용자 선택 옵션:
+      - RAG 적용: 법규 DB 검색, 정확한 법조항 인용
+      - RAG 미적용: GPT 내부 지식만 사용
 
 Concurrency:
   - asyncio (병렬 처리)
@@ -1017,6 +1020,10 @@ medical-ad-mvp/
 
 ## 📝 버전 히스토리
 
+- v3.3 (2026-01-06): RAG 적용/미적용 옵션 추가
+  - 프론트엔드 RAG 모드 라디오 버튼 추가
+  - 백엔드 use_rag 파라미터 추가 (모든 분석 API)
+  - GPT-5.2 max_output_tokens 조정 (reasoning 토큰 고려)
 - v3.2 (2026-01-06): GPT-5.2 + RAG 구현
   - GPT-4 → GPT-5.2 업그레이드 (Responses API + Reasoning)
   - RAG 시스템 구현 (Chroma 벡터 DB + LangChain)
