@@ -927,6 +927,148 @@ async def classify_files(request: ClassifyRequest):
     }
 
 
+# ============================================================
+# 관리자 API - RAG 문서 관리
+# ============================================================
+
+# RAG 문서 저장 폴더
+DATA_DIR = Path(__file__).parent / "data"
+DATA_DIR.mkdir(exist_ok=True)
+
+
+@app.get("/api/admin/documents")
+async def get_documents():
+    """
+    RAG 문서 목록 조회
+
+    Returns:
+        dict: 문서 목록
+    """
+    try:
+        documents = []
+        supported_extensions = [".txt", ".pdf"]
+
+        for file_path in DATA_DIR.iterdir():
+            if file_path.is_file() and file_path.suffix.lower() in supported_extensions:
+                stat = file_path.stat()
+                documents.append({
+                    "filename": file_path.name,
+                    "size": stat.st_size,
+                    "type": file_path.suffix.lower().replace(".", ""),
+                    "modified": datetime.fromtimestamp(stat.st_mtime).isoformat()
+                })
+
+        # 파일명 기준 정렬
+        documents.sort(key=lambda x: x["filename"])
+
+        return {
+            "success": True,
+            "documents": documents,
+            "total_count": len(documents)
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"문서 목록 조회 중 오류가 발생했습니다: {str(e)}"
+        )
+
+
+@app.post("/api/admin/documents")
+async def upload_documents(files: List[UploadFile] = File(...)):
+    """
+    RAG 문서 업로드 (다중 파일)
+
+    Args:
+        files: 업로드할 파일 리스트 (.txt, .pdf)
+
+    Returns:
+        dict: 업로드 결과
+    """
+    supported_extensions = [".txt", ".pdf"]
+    max_file_size = 50 * 1024 * 1024  # 50MB
+
+    uploaded = []
+    failed = []
+
+    for file in files:
+        filename = file.filename
+        file_ext = Path(filename).suffix.lower()
+
+        # 확장자 검증
+        if file_ext not in supported_extensions:
+            failed.append({"filename": filename, "reason": f"지원하지 않는 형식: {file_ext}"})
+            continue
+
+        # 파일 크기 검증
+        content = await file.read()
+        if len(content) > max_file_size:
+            failed.append({"filename": filename, "reason": "파일 크기 초과 (최대 50MB)"})
+            continue
+
+        # 파일 저장
+        try:
+            # 보안: 경로 traversal 방지
+            safe_filename = Path(filename).name
+            file_path = DATA_DIR / safe_filename
+
+            with open(file_path, "wb") as f:
+                f.write(content)
+
+            uploaded.append(safe_filename)
+
+        except Exception as e:
+            failed.append({"filename": filename, "reason": str(e)})
+
+    return {
+        "success": len(uploaded) > 0,
+        "uploaded": uploaded,
+        "failed": failed,
+        "message": f"{len(uploaded)}개 파일 업로드 완료" + (f", {len(failed)}개 실패" if failed else "")
+    }
+
+
+@app.delete("/api/admin/documents/{filename}")
+async def delete_document(filename: str):
+    """
+    RAG 문서 삭제
+
+    Args:
+        filename: 삭제할 파일명
+
+    Returns:
+        dict: 삭제 결과
+    """
+    # 보안: 경로 traversal 방지
+    safe_filename = Path(filename).name
+    file_path = DATA_DIR / safe_filename
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"파일을 찾을 수 없습니다: {filename}"
+        )
+
+    if not file_path.is_file():
+        raise HTTPException(
+            status_code=400,
+            detail=f"파일이 아닙니다: {filename}"
+        )
+
+    try:
+        file_path.unlink()
+        return {
+            "success": True,
+            "message": f"{filename} 삭제 완료"
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"파일 삭제 중 오류가 발생했습니다: {str(e)}"
+        )
+
+
 if __name__ == "__main__":
     import uvicorn
 
