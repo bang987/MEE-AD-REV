@@ -9,6 +9,30 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# RAG 모듈 임포트 (lazy loading)
+_rag_initialized = False
+_rag_retriever = None
+
+
+def _get_rag_context(text: str) -> str:
+    """RAG를 사용하여 관련 법규 컨텍스트 검색"""
+    global _rag_initialized, _rag_retriever
+
+    try:
+        if not _rag_initialized:
+            from rag.retriever import get_retriever
+            from rag.vector_store import initialize_vector_store
+            initialize_vector_store()
+            _rag_retriever = get_retriever()
+            _rag_initialized = True
+
+        if _rag_retriever:
+            return _rag_retriever.build_rag_context(text, top_k=5)
+    except Exception as e:
+        print(f"[RAG] 컨텍스트 검색 실패: {e}")
+
+    return ""
+
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
@@ -143,38 +167,44 @@ def _generate_summary(result: ViolationResult) -> str:
     return summary
 
 
-def analyze_with_ai(text: str, keyword_result: Optional[ViolationResult] = None) -> str:
+def analyze_with_ai(text: str, keyword_result: Optional[ViolationResult] = None, use_rag: bool = True) -> str:
     """
-    OpenAI를 사용한 심층 광고 분석
+    OpenAI를 사용한 심층 광고 분석 (RAG 지원)
 
     Args:
         text: 분석할 텍스트
         keyword_result: 키워드 분석 결과 (선택)
+        use_rag: RAG 사용 여부
 
     Returns:
         str: AI 분석 결과
     """
 
     # 키워드 분석 결과를 컨텍스트로 포함
-    context = ""
+    keyword_context = ""
     if keyword_result and keyword_result.violations:
         violations_text = "\n".join([
             f"- {v['keyword']} ({v['category']}, {v['severity']})"
             for v in keyword_result.violations[:10]  # 상위 10개만
         ])
-        context = f"\n\n키워드 분석에서 다음 위반이 발견되었습니다:\n{violations_text}"
+        keyword_context = f"\n\n## 키워드 분석 결과\n다음 위반 키워드가 발견되었습니다:\n{violations_text}"
+
+    # RAG로 관련 법규 검색
+    rag_context = ""
+    if use_rag:
+        rag_context = _get_rag_context(text)
+        if rag_context:
+            rag_context = f"\n\n{rag_context}"
 
     prompt = f"""당신은 대한민국 의료법 전문가입니다. 다음 의료 광고 텍스트를 분석하여 의료법 위반 여부를 판단하세요.
+{rag_context}
+{keyword_context}
 
-의료법 주요 금지 사항:
-1. 의료법 제56조 제2항 제1호: 거짓 또는 과장된 내용의 광고 금지
-2. 의료법 제56조 제2항 제2호: 다른 의료기관과의 비교 광고 금지
-3. 의료법 제56조 제2항 제3호: 객관적 사실을 증명할 수 없는 내용의 광고 금지
-4. 의료법 제27조 제3항: 부당한 환자 유인·알선 행위 금지
-
-광고 텍스트:
+## 분석 대상 광고 텍스트
 {text}
-{context}
+
+## 요청사항
+위 법규 조항을 근거로 광고의 위반 여부를 판정하고, 각 판정에 대해 정확한 법규 조항을 인용해주세요.
 
 다음 형식으로 분석 결과를 제공하세요:
 
@@ -182,7 +212,7 @@ def analyze_with_ai(text: str, keyword_result: Optional[ViolationResult] = None)
 - 발견된 위반 내용을 구체적으로 나열
 
 **법적 근거:**
-- 해당하는 의료법 조항 명시
+- 해당하는 의료법 조항 명시 (RAG 검색 결과 활용)
 
 **권고 사항:**
 - 광고 수정 방안 제시
@@ -195,7 +225,7 @@ def analyze_with_ai(text: str, keyword_result: Optional[ViolationResult] = None)
     try:
         response = client.responses.create(
             model="gpt-5.2",
-            instructions="당신은 대한민국 의료법 전문가입니다.",
+            instructions="당신은 대한민국 의료법 전문가입니다. 제공된 법규 조항을 정확히 인용하여 분석하세요.",
             input=[{"role": "user", "content": prompt}],
             max_output_tokens=1500,
             reasoning={"effort": "high"}

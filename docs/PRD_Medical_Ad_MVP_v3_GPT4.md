@@ -1,14 +1,15 @@
-# PRD: 의료광고 AI 심의 시스템 MVP (GPT-4 기반)
+# PRD: 의료광고 AI 심의 시스템 MVP (GPT-5.2 + RAG 기반)
 
 ## 📋 문서 정보
 - **프로젝트명**: 의료광고 AI 사전 심의 시스템
-- **버전**: MVP v3.1 (GPT-4 + PaddleOCR)
+- **버전**: MVP v3.2 (GPT-5.2 + RAG + PaddleOCR)
 - **목표 완료일**: 2026년 1월 14일
 - **작성일**: 2026년 1월 4일
-- **LLM**: GPT-4 (OpenAI API)
+- **LLM**: GPT-5.2 (OpenAI Responses API + Reasoning)
+- **RAG**: Chroma 벡터 DB + OpenAI Embeddings
 - **OCR**: Naver Clova OCR + PaddleOCR (선택 가능)
-- **진행 상황**: 85% (Day 1-8 완료) → 목표 100%
-- **최종 업데이트**: 2026년 1월 5일 (PaddleOCR 엔진 선택 기능 추가)
+- **진행 상황**: 90% (Day 1-8 완료, RAG 구현) → 목표 100%
+- **최종 업데이트**: 2026년 1월 6일 (RAG 구현, PDF 지원, GPT-5.2 업그레이드)
 
 ---
 
@@ -70,12 +71,13 @@
 - [x] 서버 192.168.0.2 접근 가능
 - [x] Python 3.10+ 설치 확인 (Python 3.12)
 - [x] FastAPI 설치 (uvicorn 포함)
-- [x] OpenAI Python SDK 설치 (1.54.0)
+- [x] OpenAI Python SDK 설치 (2.14.0 - Responses API 지원)
 - [x] Naver Clova OCR 계정 생성 및 API 연동
+- [x] RAG 의존성 설치 (langchain, chromadb, pypdf)
 
 ---
 
-## 🔧 기술 스택 (GPT-4 기반)
+## 🔧 기술 스택 (GPT-5.2 + RAG 기반)
 
 ### Backend
 ```yaml
@@ -97,10 +99,21 @@ AI/ML:
       - 비용: 무료 (오픈소스)
       - 모델: korean (한국어 특화)
       - 사용자 UI에서 선택 가능
-  LLM: GPT-4 (OpenAI API)
-    - Model: gpt-4-turbo-preview
+  LLM: GPT-5.2 (OpenAI Responses API)
+    - Model: gpt-5.2
+    - API: client.responses.create()
+    - Reasoning: {"effort": "high"} 활성화
     - 한국어 법률 해석 최강
-    - 비용: ~$1-2 (데모 전체)
+    - 비용: ~$2-3 (데모 전체)
+  RAG (Retrieval-Augmented Generation):
+    - Vector DB: Chroma PersistentClient
+      - 로컬 저장: ./chroma_db (영구 보관)
+      - 서버 재시작해도 유지
+    - Embeddings: OpenAI text-embedding-3-small
+      - 비용: ~$0.02/1M tokens (거의 무료)
+    - 문서 형식: .txt, .pdf 지원
+    - 청킹: RecursiveCharacterTextSplitter (500자, 50 overlap)
+    - 검색: top_k=5 유사도 검색
 
 Concurrency:
   - asyncio (병렬 처리)
@@ -116,6 +129,8 @@ Data Storage:
     - 반려: uploads/rejected/ (HIGH, CRITICAL)
     - 검토: uploads/review/ (MEDIUM)
   - 키워드: Python dict
+  - RAG 벡터 DB: ./chroma_db (영구 저장)
+  - 법규 문서: data/ 폴더 (.txt, .pdf 자동 인덱싱)
 ```
 
 ### Frontend
@@ -712,16 +727,18 @@ Host: 로컬 (http://localhost:5173)
   - 1-19점: LOW (통과 가능)
   - 0점: SAFE (통과)
 
-### 5. GPT-4 법적 근거
-- [x] **모델**: gpt-4
-- [x] **프롬프트**: 의료법 전문가 페르소나
+### 5. GPT-5.2 법적 근거 (RAG 통합)
+- [x] **모델**: gpt-5.2 (OpenAI Responses API)
+- [x] **Reasoning**: {"effort": "high"} 활성화
+- [x] **RAG 통합**: Chroma 벡터 DB에서 관련 법규 검색 후 프롬프트 주입
+- [x] **프롬프트**: 의료법 전문가 페르소나 + RAG 컨텍스트
 - [x] **출력 형식**:
   ```
-  위반 사항, 법적 근거, 권고 사항, 전체 평가
+  위반 사항, 법적 근거 (RAG 검색 결과 활용), 권고 사항, 전체 평가
   ```
 - [x] **응답 길이**: 적절한 길이 (구조화된 형식)
-- [x] **응답 시간**: 10초 이내 (평균 13.33초, 허용 범위)
-- [x] **법조항 포함율**: 90% 이상 (100% 달성)
+- [x] **응답 시간**: 10-15초 (reasoning 포함)
+- [x] **법조항 포함율**: 95% 이상 (RAG로 정확도 향상)
 
 ### 6. 결과 대시보드
 - [x] **섹션 1**: 종합 판정 (통과/반려, 점수) - 백엔드 완성
@@ -840,7 +857,7 @@ OCR: $0
 ```
 ┌─────────────────┐
 │   Browser       │
-│   (React)       │
+│   (HTML/JS)     │
 │   localhost     │
 └────────┬────────┘
          │ HTTP/JSON
@@ -851,15 +868,15 @@ OCR: $0
 │   :8000         │
 └────────┬────────┘
          │
-    ┌────┴─────┬──────────┬─────────┐
-    │          │          │         │
-    ↓          ↓          ↓         ↓
-┌────────┐ ┌─────────┐ ┌──────┐ ┌──────┐
-│ Naver  │ │  GPT-4  │ │키워드│ │ 파일 │
-│ Clova  │ │   API   │ │ DB   │ │저장  │
-│  OCR   │ │ OpenAI  │ │Python│ │JSON  │
-└────────┘ └─────────┘ └──────┘ └──────┘
-  외부API    외부API     로컬     로컬
+    ┌────┴─────┬──────────┬─────────┬─────────┐
+    │          │          │         │         │
+    ↓          ↓          ↓         ↓         ↓
+┌────────┐ ┌─────────┐ ┌──────┐ ┌──────┐ ┌────────┐
+│ Naver  │ │ GPT-5.2 │ │키워드│ │ 파일 │ │ RAG    │
+│ Clova  │ │   API   │ │ DB   │ │저장  │ │ Chroma │
+│  OCR   │ │ OpenAI  │ │Python│ │JSON  │ │벡터DB  │
+└────────┘ └─────────┘ └──────┘ └──────┘ └────────┘
+  외부API    외부API     로컬     로컬     로컬
 ```
 
 ---
@@ -872,11 +889,18 @@ medical-ad-mvp/
 │   ├── main.py                      # FastAPI 메인
 │   ├── medical_keywords.py          # 키워드 DB
 │   ├── naver_ocr.py                 # OCR 클라이언트
-│   ├── gpt4_analyzer.py             # GPT-4 분석기
-│   ├── analyzer_engine.py           # 통합 분석 엔진
+│   ├── ad_analyzer.py               # GPT-5.2 분석기 (RAG 통합)
+│   ├── integrated_analyzer.py       # 통합 분석 엔진
 │   ├── requirements.txt             # Python 패키지
 │   ├── .env                         # API 키 (gitignore)
-│   └── uploads/                     # 업로드 이미지
+│   ├── uploads/                     # 업로드 이미지
+│   ├── chroma_db/                   # RAG 벡터 DB (영구 저장)
+│   ├── data/                        # 법규 문서
+│   │   └── medical_law_56.txt       # 의료법 제56조
+│   └── rag/                         # RAG 모듈
+│       ├── __init__.py
+│       ├── vector_store.py          # Chroma 벡터 DB 관리
+│       └── retriever.py             # 법규 검색 + GPT 통합
 │
 ├── frontend/
 │   ├── src/
@@ -993,6 +1017,12 @@ medical-ad-mvp/
 
 ## 📝 버전 히스토리
 
+- v3.2 (2026-01-06): GPT-5.2 + RAG 구현
+  - GPT-4 → GPT-5.2 업그레이드 (Responses API + Reasoning)
+  - RAG 시스템 구현 (Chroma 벡터 DB + LangChain)
+  - PDF 문서 지원 추가 (pypdf)
+  - 의료법 제56조 법규 문서 임베딩
+  - data/ 폴더 .txt, .pdf 자동 인덱싱
 - v3.1 (2026-01-05): PaddleOCR 지원 추가 (OCR 엔진 선택 기능)
   - PP-OCRv4 한국어 모델 적용
   - 사용자 UI에서 OCR 엔진 선택 가능

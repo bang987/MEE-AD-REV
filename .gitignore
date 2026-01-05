@@ -40,3 +40,4 @@ build/
 # Node
 node_modules/
 frontend/node_modules/
+chroma_db/
