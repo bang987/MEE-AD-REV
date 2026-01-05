@@ -230,7 +230,7 @@
         function showMessage(text, type) {
             messageDiv.textContent = text;
             messageDiv.className = `message show ${type}`;
-            setTimeout(() => { messageDiv.classList.remove('show'); }, 5000);
+            setTimeout(() => { messageDiv.classList.remove('show'); }, 8000);
         }
 
         // 파일 크기 포맷
@@ -330,7 +330,12 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    showMessage(result.message, 'success');
+                    // RAG 재인덱싱 정보 포함한 메시지
+                    let msg = result.message;
+                    if (result.rag_indexed && result.rag_indexed.total_chunks > 0) {
+                        msg += ` | RAG 재인덱싱: ${result.rag_indexed.total_chunks}개 청크 추가 (전체 ${result.rag_indexed.total_index_count}개)`;
+                    }
+                    showMessage(msg, 'success');
                     selectedFiles = [];
                     fileInput.value = '';
                     renderSelectedFiles();
@@ -425,7 +430,12 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    showMessage(result.message, 'success');
+                    // RAG 인덱스 제거 정보 포함한 메시지
+                    let msg = result.message;
+                    if (result.rag_removed && result.rag_removed.chunks_removed > 0) {
+                        msg += ` | RAG 인덱스 제거: ${result.rag_removed.chunks_removed}개 청크 (남은 전체 ${result.rag_removed.total_index_count}개)`;
+                    }
+                    showMessage(msg, 'success');
                     loadDocuments();
                 } else {
                     showMessage(result.message || '삭제 실패', 'error');

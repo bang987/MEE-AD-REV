@@ -163,6 +163,33 @@ class MedicalLawVectorStore:
             persist_directory=self.persist_directory
         )
 
+    def remove_documents_by_source(self, source_path: str) -> int:
+        """
+        특정 소스 파일의 문서들을 벡터 DB에서 제거
+
+        Args:
+            source_path: 제거할 문서의 소스 경로
+
+        Returns:
+            제거된 문서 수
+        """
+        try:
+            # Chroma 컬렉션에서 해당 소스의 문서 ID 조회
+            collection = self.vectorstore._collection
+            results = collection.get(
+                where={"source": source_path}
+            )
+
+            if results and results['ids']:
+                count = len(results['ids'])
+                collection.delete(ids=results['ids'])
+                print(f"[RAG] 문서 제거: {source_path} ({count} chunks)")
+                return count
+            return 0
+        except Exception as e:
+            print(f"[RAG] 문서 제거 실패: {e}")
+            return 0
+
 
 # 싱글톤 인스턴스
 _vector_store_instance: Optional[MedicalLawVectorStore] = None
@@ -174,6 +201,40 @@ def get_vector_store() -> MedicalLawVectorStore:
     if _vector_store_instance is None:
         _vector_store_instance = MedicalLawVectorStore()
     return _vector_store_instance
+
+
+def index_single_file(file_path: str) -> int:
+    """
+    단일 파일을 벡터 DB에 인덱싱
+
+    Args:
+        file_path: 인덱싱할 파일 경로
+
+    Returns:
+        인덱싱된 청크 수
+    """
+    store = get_vector_store()
+    try:
+        chunks = store.load_and_index_documents(file_path)
+        print(f"[RAG] 단일 파일 인덱싱: {Path(file_path).name} ({chunks} chunks)")
+        return chunks
+    except Exception as e:
+        print(f"[RAG] 단일 파일 인덱싱 실패: {e}")
+        return 0
+
+
+def remove_file_from_index(file_path: str) -> int:
+    """
+    벡터 DB에서 특정 파일의 인덱스 제거
+
+    Args:
+        file_path: 제거할 파일 경로
+
+    Returns:
+        제거된 청크 수
+    """
+    store = get_vector_store()
+    return store.remove_documents_by_source(file_path)
 
 
 def initialize_vector_store(data_dir: str = None, force_reindex: bool = False) -> int:

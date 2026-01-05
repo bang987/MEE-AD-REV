@@ -18,6 +18,7 @@ from enum import Enum
 from ad_analyzer import analyze_complete
 from medical_keywords import keyword_db
 from paddle_ocr import perform_paddle_ocr
+from rag.vector_store import index_single_file, remove_file_from_index, get_vector_store
 
 
 class OCREngine(str, Enum):
@@ -1020,11 +1021,30 @@ async def upload_documents(files: List[UploadFile] = File(...)):
         except Exception as e:
             failed.append({"filename": filename, "reason": str(e)})
 
+    # RAG 자동 재인덱싱
+    indexed_chunks = 0
+    indexed_files = []
+    if uploaded:
+        for filename in uploaded:
+            file_path = DATA_DIR / filename
+            chunks = index_single_file(str(file_path))
+            if chunks > 0:
+                indexed_chunks += chunks
+                indexed_files.append({"filename": filename, "chunks": chunks})
+
+    # 현재 총 인덱스 수
+    total_index_count = get_vector_store().get_collection_count()
+
     return {
         "success": len(uploaded) > 0,
         "uploaded": uploaded,
         "failed": failed,
-        "message": f"{len(uploaded)}개 파일 업로드 완료" + (f", {len(failed)}개 실패" if failed else "")
+        "message": f"{len(uploaded)}개 파일 업로드 완료" + (f", {len(failed)}개 실패" if failed else ""),
+        "rag_indexed": {
+            "files": indexed_files,
+            "total_chunks": indexed_chunks,
+            "total_index_count": total_index_count
+        }
     }
 
 
@@ -1056,10 +1076,22 @@ async def delete_document(filename: str):
         )
 
     try:
+        # RAG 인덱스에서 먼저 제거
+        removed_chunks = remove_file_from_index(str(file_path))
+
+        # 파일 삭제
         file_path.unlink()
+
+        # 현재 총 인덱스 수
+        total_index_count = get_vector_store().get_collection_count()
+
         return {
             "success": True,
-            "message": f"{filename} 삭제 완료"
+            "message": f"{filename} 삭제 완료",
+            "rag_removed": {
+                "chunks_removed": removed_chunks,
+                "total_index_count": total_index_count
+            }
         }
 
     except Exception as e:
