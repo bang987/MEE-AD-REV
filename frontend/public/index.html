@@ -1,0 +1,1723 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>의료광고 AI 심의 시스템</title>
+    <style>
+        /* 전역 스타일 리셋 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* 앱 컨테이너 */
+        .app {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        /* 헤더 */
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 2rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header-title {
+            font-size: 2rem;
+            color: #2d3748;
+            margin-bottom: 0.5rem;
+        }
+
+        .header-subtitle {
+            font-size: 1rem;
+            color: #718096;
+        }
+
+        /* 메인 컨텐츠 */
+        .main-content {
+            flex: 1;
+            max-width: 1200px;
+            width: 100%;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        /* 업로드 섹션 */
+        .upload-section {
+            margin-bottom: 2rem;
+        }
+
+        .upload-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .upload-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            color: #667eea;
+        }
+
+        .upload-header h2 {
+            font-size: 1.5rem;
+            color: #2d3748;
+        }
+
+        /* 파일 입력 영역 */
+        .file-input-area {
+            margin-bottom: 1.5rem;
+        }
+
+        .file-label {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem 2rem;
+            border: 2px dashed #cbd5e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f7fafc;
+        }
+
+        .file-label:hover {
+            border-color: #667eea;
+            background: #edf2f7;
+        }
+
+        .file-text {
+            font-size: 1.1rem;
+            color: #2d3748;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .file-hint {
+            font-size: 0.9rem;
+            color: #718096;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        /* 미리보기 */
+        .preview-section {
+            margin: 1.5rem 0;
+            display: none;
+        }
+
+        .preview-section.show {
+            display: block;
+        }
+
+        .preview-section h3 {
+            font-size: 1.1rem;
+            color: #2d3748;
+            margin-bottom: 1rem;
+        }
+
+        .preview-image {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 에러 메시지 */
+        .error-message {
+            display: none;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1rem;
+            background: #fed7d7;
+            color: #c53030;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        .error-message.show {
+            display: flex;
+        }
+
+        /* AI 옵션 */
+        .ai-option {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f7fafc;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .ai-option.show {
+            display: block;
+        }
+
+        .ai-option label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+        }
+
+        .ai-option input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .ai-option span {
+            font-weight: 500;
+            color: #2d3748;
+        }
+
+        /* 버튼 그룹 */
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .btn {
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #2d3748;
+            display: none;
+        }
+
+        .btn-secondary.show {
+            display: flex;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* 결과 섹션 */
+        .result-section {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+
+        .result-section.show {
+            display: block;
+        }
+
+        .result-section h2 {
+            font-size: 1.8rem;
+            color: #2d3748;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .result-card {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .result-card h3 {
+            font-size: 1.3rem;
+            color: #2d3748;
+            margin-bottom: 1rem;
+        }
+
+        /* 종합 판정 카드 */
+        .judgment-card {
+            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+            border: 2px solid #e2e8f0;
+        }
+
+        .judgment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .judgment-badge {
+            padding: 0.5rem 1.5rem;
+            border-radius: 25px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .judgment-badge.passed {
+            background: #48bb78;
+            color: white;
+        }
+
+        .judgment-badge.rejected {
+            background: #e53e3e;
+            color: white;
+        }
+
+        .judgment-content {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .judgment-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1rem;
+            background: white;
+            border-radius: 8px;
+        }
+
+        .judgment-label {
+            font-size: 0.9rem;
+            color: #718096;
+            font-weight: 600;
+        }
+
+        .judgment-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #2d3748;
+        }
+
+        .risk-badge-large {
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        .risk-safe { color: #38a169; }
+        .risk-low { color: #48bb78; }
+        .risk-medium { color: #ed8936; }
+        .risk-high { color: #e53e3e; }
+        .risk-critical { color: #c53030; background: #fed7d7; }
+
+        .judgment-summary {
+            padding: 1rem;
+            background: white;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .judgment-summary p {
+            color: #4a5568;
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        /* OCR 텍스트 하이라이팅 */
+        .ocr-text-highlighted {
+            color: #2d3748;
+            line-height: 1.8;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: white;
+            border-radius: 6px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .highlight-high {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+
+        .highlight-medium {
+            background: #feebc8;
+            color: #c05621;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+
+        .highlight-low {
+            background: #fefcbf;
+            color: #744210;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+
+        .ocr-confidence {
+            font-size: 0.9rem;
+            color: #718096;
+        }
+
+        /* 위반 사항 상세 */
+        .violations-detail-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .violation-detail-card {
+            background: white;
+            border-radius: 8px;
+            border-left: 4px solid #cbd5e0;
+            overflow: hidden;
+        }
+
+        .violation-detail-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: #f7fafc;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .violation-severity-badge {
+            padding: 0.35rem 0.7rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .violation-severity-badge.high {
+            background: #fed7d7;
+            color: #c53030;
+        }
+
+        .violation-severity-badge.medium {
+            background: #feebc8;
+            color: #c05621;
+        }
+
+        .violation-severity-badge.low {
+            background: #fefcbf;
+            color: #744210;
+        }
+
+        .violation-keyword-main {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #2d3748;
+            flex: 1;
+        }
+
+        .violation-score-badge {
+            padding: 0.35rem 0.7rem;
+            background: #edf2f7;
+            color: #2d3748;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        .violation-detail-body {
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .violation-info-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #4a5568;
+            min-width: 100px;
+            font-size: 0.9rem;
+        }
+
+        .info-value {
+            color: #2d3748;
+            flex: 1;
+        }
+
+        .law-text {
+            color: #667eea;
+            font-weight: 500;
+        }
+
+        .bonus-indicator {
+            color: #e53e3e;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .violation-description {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            padding-top: 0.5rem;
+        }
+
+        .violation-description p {
+            margin: 0;
+            padding: 0.75rem;
+            background: #f7fafc;
+            border-radius: 6px;
+            color: #4a5568;
+            line-height: 1.6;
+        }
+
+        /* AI 분석 근거 */
+        .ai-analysis-card {
+            background: linear-gradient(135deg, #f0f4ff 0%, #e6f0ff 100%);
+            border: 2px solid #667eea;
+        }
+
+        .ai-analysis-content {
+            padding: 1rem;
+            background: white;
+            border-radius: 8px;
+        }
+
+        .ai-analysis-text {
+            margin: 0;
+            padding: 1rem;
+            background: #f7fafc;
+            border-radius: 6px;
+            color: #2d3748;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 0.95rem;
+            border-left: 4px solid #667eea;
+        }
+
+        /* 푸터 */
+        .footer {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 1.5rem;
+            text-align: center;
+            color: #718096;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 선택된 파일 목록 */
+        .selected-files-list {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f7fafc;
+            border-radius: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .selected-files-list.show {
+            display: block;
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            margin: 0.25rem 0;
+            background: white;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .file-item-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .file-item-size {
+            color: #718096;
+            margin-left: 1rem;
+            font-size: 0.8rem;
+        }
+
+        /* 진행률 섹션 */
+        .progress-section {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: #f7fafc;
+            border-radius: 8px;
+        }
+
+        .progress-section h3 {
+            margin-bottom: 1rem;
+            color: #2d3748;
+            font-size: 1.1rem;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 30px;
+            background: #e2e8f0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        #progress-text {
+            text-align: center;
+            color: #4a5568;
+            font-weight: 500;
+        }
+
+        /* 배치 결과 섹션 */
+        .batch-result-section {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .batch-result-section h2 {
+            margin-bottom: 1.5rem;
+            color: #2d3748;
+        }
+
+        /* 테이블 컨트롤 */
+        .table-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .filter-btn {
+            padding: 0.5rem 1rem;
+            border: 2px solid #e2e8f0;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .filter-btn:hover {
+            border-color: #667eea;
+            background: #f7fafc;
+        }
+
+        .filter-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .sort-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .sort-group label {
+            font-weight: 500;
+            color: #4a5568;
+        }
+
+        .sort-group select {
+            padding: 0.5rem 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        /* 결과 테이블 */
+        .table-wrapper {
+            overflow-x: auto;
+            margin-bottom: 1rem;
+        }
+
+        #results-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        #results-table th {
+            background: #f7fafc;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: #2d3748;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        #results-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: middle;
+        }
+
+        #results-table tr:hover {
+            background: #f7fafc;
+        }
+
+        .table-judgment {
+            padding: 0.4rem 0.8rem;
+            border-radius: 4px;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .table-judgment.passed {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .table-judgment.rejected {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .table-judgment.review {
+            background: #feebc8;
+            color: #7c2d12;
+        }
+
+        .table-risk-badge {
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .table-risk-badge.risk-safe {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .table-risk-badge.risk-low {
+            background: #bee3f8;
+            color: #2c5282;
+        }
+
+        .table-risk-badge.risk-medium {
+            background: #feebc8;
+            color: #7c2d12;
+        }
+
+        .table-risk-badge.risk-high {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .table-risk-badge.risk-critical {
+            background: #feb2b2;
+            color: #742a2a;
+        }
+
+        .view-detail-btn {
+            padding: 0.4rem 0.8rem;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .view-detail-btn:hover {
+            background: #5568d3;
+        }
+
+        /* 반응형 */
+        @media (max-width: 768px) {
+            .header-title { font-size: 1.5rem; }
+            .main-content { padding: 0 0.5rem; }
+            .upload-card, .result-section { padding: 1rem; }
+            .button-group { flex-direction: column; }
+            .btn { width: 100%; }
+            .judgment-content { grid-template-columns: 1fr; }
+            .violation-info-row { flex-direction: column; gap: 0.25rem; }
+            .info-label { min-width: auto; }
+            .table-controls { flex-direction: column; align-items: flex-start; }
+            #results-table { font-size: 0.85rem; }
+            #results-table th, #results-table td { padding: 0.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <!-- 헤더 -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="header-title">의료광고 AI 심의 시스템</h1>
+                <p class="header-subtitle">의료광고 이미지의 법규 준수 여부를 분석합니다</p>
+            </div>
+        </header>
+
+        <!-- 메인 컨텐츠 -->
+        <main class="main-content">
+            <!-- 업로드 섹션 -->
+            <div class="upload-section">
+                <div class="upload-card">
+                    <div class="upload-header">
+                        <h2>📤 광고 이미지 업로드</h2>
+                    </div>
+
+                    <!-- 파일 선택 영역 -->
+                    <div class="file-input-area">
+                        <label for="file-input" class="file-label">
+                            <span class="file-text" id="file-name">이미지 파일을 선택하세요</span>
+                            <span class="file-hint">JPG, PNG (최대 10MB)</span>
+                        </label>
+                        <input
+                            id="file-input"
+                            type="file"
+                            accept="image/jpeg,image/jpg,image/png"
+                            class="file-input"
+                        />
+                    </div>
+
+                    <!-- 이미지 미리보기 -->
+                    <div id="preview-section" class="preview-section">
+                        <h3>미리보기</h3>
+                        <img id="preview-image" class="preview-image" alt="Preview">
+                    </div>
+
+                    <!-- 에러 메시지 -->
+                    <div id="error-message" class="error-message">
+                        <span id="error-text"></span>
+                    </div>
+
+                    <!-- AI 분석 옵션 -->
+                    <div id="ai-option" class="ai-option">
+                        <label>
+                            <input type="checkbox" id="use-ai">
+                            <span>GPT-4 AI 분석 사용 (법규 근거 포함, 처리 시간 +15초)</span>
+                        </label>
+                    </div>
+
+                    <!-- 분석 버튼 -->
+                    <div class="button-group">
+                        <button id="analyze-btn" class="btn btn-primary" disabled>
+                            분석 시작
+                        </button>
+                        <button id="reset-btn" class="btn btn-secondary">
+                            초기화
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 배치 업로드 섹션 -->
+            <div class="upload-section">
+                <div class="upload-card">
+                    <div class="upload-header">
+                        <h2>배치 분석 (다중 파일)</h2>
+                    </div>
+
+                    <!-- 다중 파일 선택 영역 -->
+                    <div class="file-input-area">
+                        <label for="batch-file-input" class="file-label">
+                            <span class="file-text">여러 이미지 파일을 선택하세요 (최대 50개)</span>
+                            <span class="file-hint">JPG, PNG (파일당 최대 10MB)</span>
+                        </label>
+                        <input
+                            id="batch-file-input"
+                            type="file"
+                            accept="image/jpeg,image/jpg,image/png"
+                            class="file-input"
+                            multiple
+                        />
+                    </div>
+
+                    <!-- 선택된 파일 목록 -->
+                    <div id="selected-files-list" class="selected-files-list"></div>
+
+                    <!-- 배치 AI 분석 옵션 -->
+                    <div id="batch-ai-option" class="ai-option" style="display: none;">
+                        <label>
+                            <input type="checkbox" id="batch-use-ai">
+                            <span>GPT-4 AI 분석 사용 (법규 근거 포함, 처리 시간 +15초/파일)</span>
+                        </label>
+                    </div>
+
+                    <!-- 배치 분석 버튼 -->
+                    <div class="button-group">
+                        <button id="batch-analyze-btn" class="btn btn-primary" disabled>
+                            배치 분석 시작
+                        </button>
+                        <button id="batch-reset-btn" class="btn btn-secondary" style="display: none;">
+                            초기화
+                        </button>
+                    </div>
+
+                    <!-- 진행률 섹션 -->
+                    <div id="progress-section" class="progress-section" style="display: none;">
+                        <h3>분석 진행 중...</h3>
+                        <div class="progress-bar-container">
+                            <div id="progress-bar" class="progress-bar"></div>
+                        </div>
+                        <p id="progress-text">0/0 (0%)</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 배치 결과 테이블 섹션 -->
+            <div id="batch-result-section" class="batch-result-section" style="display: none;">
+                <h2>배치 분석 결과</h2>
+
+                <!-- 필터 및 정렬 컨트롤 -->
+                <div class="table-controls">
+                    <div class="filter-group">
+                        <button class="filter-btn active" data-filter="all">전체</button>
+                        <button class="filter-btn" data-filter="approved">통과</button>
+                        <button class="filter-btn" data-filter="rejected">반려</button>
+                        <button class="filter-btn" data-filter="review">검토</button>
+                    </div>
+                    <div class="sort-group">
+                        <label>정렬:</label>
+                        <select id="sort-select">
+                            <option value="filename">파일명</option>
+                            <option value="score">점수</option>
+                            <option value="risk">위험도</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 결과 테이블 -->
+                <div class="table-wrapper">
+                    <table id="results-table">
+                        <thead>
+                            <tr>
+                                <th>파일명</th>
+                                <th>판정</th>
+                                <th>총점</th>
+                                <th>위험도</th>
+                                <th>위반 건수</th>
+                                <th>상세보기</th>
+                            </tr>
+                        </thead>
+                        <tbody id="results-table-body"></tbody>
+                    </table>
+                </div>
+
+                <!-- 분류 버튼 -->
+                <div class="button-group">
+                    <button id="classify-btn" class="btn btn-primary">
+                        전체 승인 및 분류
+                    </button>
+                </div>
+            </div>
+
+            <!-- 결과 섹션 (단일 파일) -->
+            <div id="result-section" class="result-section">
+                <h2>분석 결과</h2>
+                <div id="result-content"></div>
+            </div>
+        </main>
+
+        <!-- 푸터 -->
+        <footer class="footer">
+            <p>의료광고 AI 심의 시스템 MVP v1.0</p>
+        </footer>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+        let selectedFile = null;
+
+        // DOM 요소
+        const fileInput = document.getElementById('file-input');
+        const fileName = document.getElementById('file-name');
+        const previewSection = document.getElementById('preview-section');
+        const previewImage = document.getElementById('preview-image');
+        const errorMessage = document.getElementById('error-message');
+        const errorText = document.getElementById('error-text');
+        const aiOption = document.getElementById('ai-option');
+        const useAI = document.getElementById('use-ai');
+        const analyzeBtn = document.getElementById('analyze-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const resultSection = document.getElementById('result-section');
+        const resultContent = document.getElementById('result-content');
+
+        // 파일 선택 핸들러
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // 파일 타입 검증
+            if (!file.type.startsWith('image/')) {
+                showError('이미지 파일만 업로드 가능합니다.');
+                return;
+            }
+
+            // 파일 크기 검증 (10MB)
+            if (file.size > 10 * 1024 * 1024) {
+                showError('파일 크기는 10MB 이하여야 합니다.');
+                return;
+            }
+
+            selectedFile = file;
+            fileName.textContent = file.name;
+            errorMessage.classList.remove('show');
+            resultSection.classList.remove('show');
+            aiOption.classList.add('show');
+            resetBtn.classList.add('show');
+            analyzeBtn.disabled = false;
+
+            // 이미지 미리보기
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                previewImage.src = reader.result;
+                previewSection.classList.add('show');
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // 분석 시작
+        analyzeBtn.addEventListener('click', async () => {
+            if (!selectedFile) {
+                showError('파일을 먼저 선택해주세요.');
+                return;
+            }
+
+            // 로딩 상태
+            analyzeBtn.disabled = true;
+            analyzeBtn.innerHTML = '<span class="spinner"></span> 분석 중...';
+            errorMessage.classList.remove('show');
+            resultSection.classList.remove('show');
+
+            try {
+                console.log('🔍 Starting analysis...', selectedFile.name);
+
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+                formData.append('use_ai', useAI.checked ? 'true' : 'false');
+
+                console.log('📤 Sending request to:', `${API_BASE_URL}/api/ocr-analyze`);
+
+                const response = await fetch(`${API_BASE_URL}/api/ocr-analyze`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                console.log('📥 Response status:', response.status);
+
+                const data = await response.json();
+                console.log('📥 Response data:', data);
+
+                if (data.success) {
+                    console.log('✅ Analysis successful');
+                    displayResult(data);
+                } else {
+                    console.error('❌ Analysis failed:', data.error);
+                    showError(data.error || '분석에 실패했습니다.');
+                }
+            } catch (err) {
+                console.error('❌ API Error:', err);
+                showError('서버에 연결할 수 없습니다. 백엔드 서버가 실행 중인지 확인해주세요.');
+            } finally {
+                analyzeBtn.disabled = false;
+                analyzeBtn.innerHTML = '분석 시작';
+            }
+        });
+
+        // 초기화
+        resetBtn.addEventListener('click', () => {
+            selectedFile = null;
+            fileInput.value = '';
+            fileName.textContent = '이미지 파일을 선택하세요';
+            previewSection.classList.remove('show');
+            errorMessage.classList.remove('show');
+            aiOption.classList.remove('show');
+            resetBtn.classList.remove('show');
+            resultSection.classList.remove('show');
+            analyzeBtn.disabled = true;
+            useAI.checked = false;
+        });
+
+        // 에러 표시
+        function showError(message) {
+            errorText.textContent = message;
+            errorMessage.classList.add('show');
+        }
+
+        // 결과 표시
+        function displayResult(data) {
+            const { ocr_result, analysis_result } = data;
+
+            // 통과/반려 판정
+            const judgment = getJudgment(analysis_result.risk_level);
+
+            let html = `
+                <!-- 종합 판정 카드 -->
+                <div class="result-card judgment-card">
+                    <div class="judgment-header">
+                        <h3>종합 판정</h3>
+                        <span class="judgment-badge ${judgment.className}">${judgment.text}</span>
+                    </div>
+                    <div class="judgment-content">
+                        <div class="judgment-item">
+                            <span class="judgment-label">총 위반 점수</span>
+                            <span class="judgment-value risk-${analysis_result.risk_level.toLowerCase()}">${analysis_result.total_score}점</span>
+                        </div>
+                        <div class="judgment-item">
+                            <span class="judgment-label">위험도 등급</span>
+                            <span class="judgment-value risk-badge-large risk-${analysis_result.risk_level.toLowerCase()}">${analysis_result.risk_level}</span>
+                        </div>
+                        <div class="judgment-item">
+                            <span class="judgment-label">위반 건수</span>
+                            <span class="judgment-value">${analysis_result.violation_count}건</span>
+                        </div>
+                    </div>
+                    <div class="judgment-summary">
+                        <p>${analysis_result.summary}</p>
+                    </div>
+                </div>
+
+                <!-- OCR 추출 텍스트 -->
+                <div class="result-card">
+                    <h3>추출된 텍스트</h3>
+                    <div class="ocr-text-highlighted">${highlightKeywords(ocr_result.text, analysis_result.violations)}</div>
+                    <p class="ocr-confidence">OCR 신뢰도: ${(ocr_result.confidence * 100).toFixed(1)}%</p>
+                </div>
+            `;
+
+            // 위반 사항 상세
+            if (analysis_result.violations && analysis_result.violations.length > 0) {
+                html += `
+                    <div class="result-card">
+                        <h3>위반 사항 상세 (${analysis_result.violation_count}건)</h3>
+                        <div class="violations-detail-list">
+                `;
+
+                analysis_result.violations.forEach(v => {
+                    html += `
+                        <div class="violation-detail-card">
+                            <div class="violation-detail-header">
+                                <span class="violation-severity-badge ${v.severity.toLowerCase()}">${v.severity}</span>
+                                <span class="violation-keyword-main">${v.keyword}</span>
+                                <span class="violation-score-badge">${v.total_score}점</span>
+                            </div>
+                            <div class="violation-detail-body">
+                                <div class="violation-info-row">
+                                    <span class="info-label">분류:</span>
+                                    <span class="info-value">${v.category}</span>
+                                </div>
+                                <div class="violation-info-row">
+                                    <span class="info-label">검출 횟수:</span>
+                                    <span class="info-value">
+                                        ${v.count}회
+                                        ${v.repetition_bonus > 0 ? `<span class="bonus-indicator"> (+${v.repetition_bonus}점 가산)</span>` : ''}
+                                    </span>
+                                </div>
+                                <div class="violation-info-row">
+                                    <span class="info-label">관련 법규:</span>
+                                    <span class="info-value law-text">${v.law}</span>
+                                </div>
+                                <div class="violation-description">
+                                    <span class="info-label">설명:</span>
+                                    <p class="info-value">${v.description}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+
+            // AI 분석 근거
+            if (analysis_result.ai_analysis) {
+                html += `
+                    <div class="result-card ai-analysis-card">
+                        <h3>AI 분석 근거 (GPT-4)</h3>
+                        <div class="ai-analysis-content">
+                            <pre class="ai-analysis-text">${analysis_result.ai_analysis}</pre>
+                        </div>
+                    </div>
+                `;
+            }
+
+            resultContent.innerHTML = html;
+            resultSection.classList.add('show');
+        }
+
+        // 통과/반려 판정
+        function getJudgment(riskLevel) {
+            const level = riskLevel.toUpperCase();
+            if (level === 'SAFE' || level === 'LOW') {
+                return { text: '통과', className: 'passed' };
+            } else {
+                return { text: '반려', className: 'rejected' };
+            }
+        }
+
+        // 키워드 하이라이팅
+        function highlightKeywords(text, violations) {
+            if (!text || !violations || violations.length === 0) {
+                return text;
+            }
+
+            // 키워드와 severity 매핑
+            const keywordMap = {};
+            violations.forEach(v => {
+                if (v.keyword) {
+                    keywordMap[v.keyword.toLowerCase()] = v.severity.toLowerCase();
+                }
+            });
+
+            // 키워드를 길이 순으로 정렬
+            const keywords = Object.keys(keywordMap).sort((a, b) => b.length - a.length);
+
+            if (keywords.length === 0) {
+                return text;
+            }
+
+            // 특수문자 이스케이프
+            const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+            // 정규표현식 생성
+            const pattern = keywords.map(k => escapeRegex(k)).join('|');
+            const regex = new RegExp(`(${pattern})`, 'gi');
+
+            // 텍스트 치환
+            return text.replace(regex, (match) => {
+                const severity = keywordMap[match.toLowerCase()];
+                return `<span class="highlight-${severity}">${match}</span>`;
+            });
+        }
+
+        // ==================== 배치 업로드 로직 ====================
+
+        // 배치 업로드 관련 변수
+        let selectedBatchFiles = [];
+        let currentBatchId = null;
+        let pollingInterval = null;
+        let batchResults = [];
+        let currentFilter = 'all';
+        let currentSort = 'filename';
+        let filteredResults = [];  // 필터링된 결과 저장
+
+        // 배치 DOM 요소
+        const batchFileInput = document.getElementById('batch-file-input');
+        const selectedFilesList = document.getElementById('selected-files-list');
+        const batchAiOption = document.getElementById('batch-ai-option');
+        const batchUseAI = document.getElementById('batch-use-ai');
+        const batchAnalyzeBtn = document.getElementById('batch-analyze-btn');
+        const batchResetBtn = document.getElementById('batch-reset-btn');
+        const progressSection = document.getElementById('progress-section');
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const batchResultSection = document.getElementById('batch-result-section');
+        const resultsTableBody = document.getElementById('results-table-body');
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        const sortSelect = document.getElementById('sort-select');
+        const classifyBtn = document.getElementById('classify-btn');
+
+        // 배치 파일 선택 핸들러
+        batchFileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+
+            if (files.length === 0) return;
+
+            // 파일 수 제한
+            if (files.length > 50) {
+                alert('최대 50개의 파일만 선택할 수 있습니다.');
+                batchFileInput.value = '';
+                return;
+            }
+
+            // 파일 검증
+            for (const file of files) {
+                if (!file.type.startsWith('image/')) {
+                    alert(`이미지 파일만 업로드 가능합니다: ${file.name}`);
+                    batchFileInput.value = '';
+                    return;
+                }
+                if (file.size > 10 * 1024 * 1024) {
+                    alert(`파일 크기는 10MB 이하여야 합니다: ${file.name}`);
+                    batchFileInput.value = '';
+                    return;
+                }
+            }
+
+            selectedBatchFiles = files;
+            displaySelectedFiles(files);
+            batchAiOption.style.display = 'block';
+            batchAnalyzeBtn.disabled = false;
+            batchResetBtn.style.display = 'inline-block';
+        });
+
+        // 선택된 파일 목록 표시
+        function displaySelectedFiles(files) {
+            selectedFilesList.innerHTML = '';
+            selectedFilesList.classList.add('show');
+
+            files.forEach((file, index) => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                fileItem.innerHTML = `
+                    <span class="file-item-name">${file.name}</span>
+                    <span class="file-item-size">${(file.size / 1024).toFixed(1)} KB</span>
+                `;
+                selectedFilesList.appendChild(fileItem);
+            });
+        }
+
+        // 배치 분석 시작
+        batchAnalyzeBtn.addEventListener('click', async () => {
+            if (selectedBatchFiles.length === 0) return;
+
+            batchAnalyzeBtn.disabled = true;
+            batchAnalyzeBtn.textContent = '분석 중...';
+            progressSection.style.display = 'block';
+            batchResultSection.style.display = 'none';
+
+            try {
+                const formData = new FormData();
+                selectedBatchFiles.forEach(file => {
+                    formData.append('files', file);
+                });
+                formData.append('use_ai', batchUseAI.checked ? 'true' : 'false');
+
+                const response = await fetch(`${API_BASE_URL}/api/batch-upload-analyze`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || '배치 분석 시작 실패');
+                }
+
+                const data = await response.json();
+                currentBatchId = data.batch_id;
+
+                // 폴링 시작
+                startPolling(currentBatchId);
+
+            } catch (error) {
+                alert(`오류: ${error.message}`);
+                batchAnalyzeBtn.disabled = false;
+                batchAnalyzeBtn.textContent = '배치 분석 시작';
+                progressSection.style.display = 'none';
+            }
+        });
+
+        // 폴링 시작
+        function startPolling(batchId) {
+            pollingInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/api/batch-status/${batchId}`);
+
+                    if (!response.ok) {
+                        throw new Error('배치 상태 조회 실패');
+                    }
+
+                    const status = await response.json();
+                    updateProgress(status);
+
+                    if (status.status === 'completed') {
+                        clearInterval(pollingInterval);
+                        batchResults = status.results;
+                        showBatchResults(status.results);
+                        batchAnalyzeBtn.disabled = false;
+                        batchAnalyzeBtn.textContent = '배치 분석 시작';
+                        progressSection.style.display = 'none';
+                    } else if (status.status === 'failed') {
+                        clearInterval(pollingInterval);
+                        alert('배치 분석 실패: ' + (status.errors.join(', ') || '알 수 없는 오류'));
+                        batchAnalyzeBtn.disabled = false;
+                        batchAnalyzeBtn.textContent = '배치 분석 시작';
+                        progressSection.style.display = 'none';
+                    }
+
+                } catch (error) {
+                    console.error('폴링 오류:', error);
+                }
+            }, 2000); // 2초마다 폴링
+        }
+
+        // 진행률 업데이트
+        function updateProgress(status) {
+            const percent = status.progress_percent.toFixed(1);
+            progressBar.style.width = `${percent}%`;
+            progressBar.textContent = `${percent}%`;
+            progressText.textContent = `${status.processed_files}/${status.total_files} (${percent}%)`;
+        }
+
+        // 배치 결과 표시
+        function showBatchResults(results) {
+            batchResultSection.style.display = 'block';
+            renderResultsTable(results, currentFilter, currentSort);
+        }
+
+        // 결과 테이블 렌더링
+        function renderResultsTable(results, filter, sortBy) {
+            // 필터링
+            filteredResults = results.filter(r => {
+                if (!r.success || !r.analysis_result) return false;
+                if (filter === 'all') return true;
+                const category = getCategory(r.analysis_result.risk_level);
+                return category === filter;
+            });
+
+            // 정렬
+            filteredResults.sort((a, b) => {
+                if (sortBy === 'filename') {
+                    return a.filename.localeCompare(b.filename);
+                } else if (sortBy === 'score') {
+                    return (b.analysis_result?.total_score || 0) - (a.analysis_result?.total_score || 0);
+                } else if (sortBy === 'risk') {
+                    const riskOrder = { 'CRITICAL': 5, 'HIGH': 4, 'MEDIUM': 3, 'LOW': 2, 'SAFE': 1 };
+                    return (riskOrder[b.analysis_result?.risk_level] || 0) - (riskOrder[a.analysis_result?.risk_level] || 0);
+                }
+                return 0;
+            });
+
+            // 테이블 렌더링
+            resultsTableBody.innerHTML = '';
+
+            filteredResults.forEach((result, index) => {
+                const { filename, analysis_result } = result;
+                const judgment = getJudgmentForTable(analysis_result.risk_level);
+                const category = getCategory(analysis_result.risk_level);
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${filename}</td>
+                    <td><span class="table-judgment ${judgment.className}">${judgment.text}</span></td>
+                    <td>${analysis_result.total_score}점</td>
+                    <td><span class="table-risk-badge risk-${analysis_result.risk_level.toLowerCase()}">${analysis_result.risk_level}</span></td>
+                    <td>${analysis_result.violation_count}건</td>
+                    <td><button class="view-detail-btn" onclick="viewDetail(${index})">상세</button></td>
+                `;
+                resultsTableBody.appendChild(row);
+            });
+
+            if (filteredResults.length === 0) {
+                resultsTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem;">결과가 없습니다.</td></tr>';
+            }
+        }
+
+        // 상세보기
+        window.viewDetail = function(index) {
+            const result = filteredResults[index];
+            if (!result || !result.success) return;
+
+            // 단일 파일 결과 섹션에 표시
+            resultSection.classList.add('show');
+            const { ocr_result, analysis_result } = result;
+
+            let html = `
+                <!-- 종합 판정 카드 -->
+                <div class="result-card judgment-card">
+                    <div class="judgment-header">
+                        <h3>종합 판정</h3>
+                        <span class="judgment-badge ${getJudgment(analysis_result.risk_level).className}">
+                            ${getJudgment(analysis_result.risk_level).text}
+                        </span>
+                    </div>
+                    <div class="judgment-content">
+                        <div class="judgment-item">
+                            <span class="judgment-label">파일명</span>
+                            <span class="judgment-value">${result.filename}</span>
+                        </div>
+                        <div class="judgment-item">
+                            <span class="judgment-label">총 위반 점수</span>
+                            <span class="judgment-value score-${analysis_result.risk_level.toLowerCase()}">
+                                ${analysis_result.total_score}점
+                            </span>
+                        </div>
+                        <div class="judgment-item">
+                            <span class="judgment-label">위험도 등급</span>
+                            <span class="judgment-value risk-badge-large risk-${analysis_result.risk_level.toLowerCase()}">
+                                ${analysis_result.risk_level}
+                            </span>
+                        </div>
+                        <div class="judgment-item">
+                            <span class="judgment-label">위반 건수</span>
+                            <span class="judgment-value">${analysis_result.violation_count}건</span>
+                        </div>
+                    </div>
+                    <div class="judgment-summary">
+                        <p>${analysis_result.summary}</p>
+                    </div>
+                </div>
+
+                <!-- OCR 추출 텍스트 -->
+                <div class="result-card">
+                    <h3>추출된 텍스트</h3>
+                    <div class="ocr-text-highlighted">${highlightKeywords(ocr_result.text, analysis_result.violations)}</div>
+                    <p class="ocr-confidence">OCR 신뢰도: ${(ocr_result.confidence * 100).toFixed(1)}%</p>
+                </div>
+            `;
+
+            // 위반 사항 상세
+            if (analysis_result.violations && analysis_result.violations.length > 0) {
+                html += `
+                    <div class="result-card">
+                        <h3>위반 사항 상세 (${analysis_result.violation_count}건)</h3>
+                        <div class="violations-detail-list">
+                `;
+
+                analysis_result.violations.forEach(v => {
+                    html += `
+                        <div class="violation-detail-card">
+                            <div class="violation-detail-header">
+                                <span class="violation-severity-badge ${v.severity.toLowerCase()}">${v.severity}</span>
+                                <span class="violation-keyword-main">${v.keyword}</span>
+                                <span class="violation-score-badge">${v.total_score}점</span>
+                            </div>
+                            <div class="violation-detail-body">
+                                <div class="violation-info-row">
+                                    <span class="info-label">분류:</span>
+                                    <span class="info-value">${v.category}</span>
+                                </div>
+                                <div class="violation-info-row">
+                                    <span class="info-label">검출 횟수:</span>
+                                    <span class="info-value">
+                                        ${v.count}회
+                                        ${v.repetition_bonus > 0 ? `<span class="bonus-indicator"> (+${v.repetition_bonus}점 가산)</span>` : ''}
+                                    </span>
+                                </div>
+                                <div class="violation-info-row">
+                                    <span class="info-label">관련 법규:</span>
+                                    <span class="info-value law-text">${v.law}</span>
+                                </div>
+                                <div class="violation-description">
+                                    <span class="info-label">설명:</span>
+                                    <p class="info-value">${v.description}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+
+            // AI 분석 근거
+            if (analysis_result.ai_analysis) {
+                html += `
+                    <div class="result-card ai-analysis-card">
+                        <h3>AI 분석 근거 (GPT-4)</h3>
+                        <div class="ai-analysis-content">
+                            <pre class="ai-analysis-text">${analysis_result.ai_analysis}</pre>
+                        </div>
+                    </div>
+                `;
+            }
+
+            resultContent.innerHTML = html;
+            resultSection.scrollIntoView({ behavior: 'smooth' });
+        };
+
+        // 필터 버튼 이벤트
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilter = btn.dataset.filter;
+                renderResultsTable(batchResults, currentFilter, currentSort);
+            });
+        });
+
+        // 정렬 선택 이벤트
+        sortSelect.addEventListener('change', (e) => {
+            currentSort = e.target.value;
+            renderResultsTable(batchResults, currentFilter, currentSort);
+        });
+
+        // 파일 분류 버튼
+        classifyBtn.addEventListener('click', async () => {
+            if (!currentBatchId || batchResults.length === 0) return;
+
+            if (!confirm('분석 결과에 따라 파일을 분류하시겠습니까?\n\n- 통과(SAFE/LOW) → approved 폴더\n- 반려(HIGH/CRITICAL) → rejected 폴더\n- 검토(MEDIUM) → review 폴더')) {
+                return;
+            }
+
+            classifyBtn.disabled = true;
+            classifyBtn.textContent = '분류 중...';
+
+            try {
+                const classifications = batchResults
+                    .filter(r => r.success && r.analysis_result)
+                    .map(r => ({
+                        filename: r.filename,
+                        category: getCategory(r.analysis_result.risk_level)
+                    }));
+
+                const response = await fetch(`${API_BASE_URL}/api/classify-files`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        batch_id: currentBatchId,
+                        classifications: classifications
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || '파일 분류 실패');
+                }
+
+                const result = await response.json();
+                alert(`파일 분류 완료!\n\n성공: ${result.success_count}개\n실패: ${result.failed_count}개`);
+
+                if (result.errors.length > 0) {
+                    console.error('분류 오류:', result.errors);
+                }
+
+            } catch (error) {
+                alert(`오류: ${error.message}`);
+            } finally {
+                classifyBtn.disabled = false;
+                classifyBtn.textContent = '전체 승인 및 분류';
+            }
+        });
+
+        // 배치 초기화
+        batchResetBtn.addEventListener('click', () => {
+            selectedBatchFiles = [];
+            currentBatchId = null;
+            batchResults = [];
+            batchFileInput.value = '';
+            selectedFilesList.innerHTML = '';
+            selectedFilesList.classList.remove('show');
+            batchAiOption.style.display = 'none';
+            batchAnalyzeBtn.disabled = true;
+            batchResetBtn.style.display = 'none';
+            progressSection.style.display = 'none';
+            batchResultSection.style.display = 'none';
+            batchUseAI.checked = false;
+
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+            }
+        });
+
+        // 판정 (테이블용)
+        function getJudgmentForTable(riskLevel) {
+            const category = getCategory(riskLevel);
+            if (category === 'approved') {
+                return { text: '통과', className: 'passed' };
+            } else if (category === 'rejected') {
+                return { text: '반려', className: 'rejected' };
+            } else {
+                return { text: '검토', className: 'review' };
+            }
+        }
+
+        // 카테고리 결정
+        function getCategory(riskLevel) {
+            const level = riskLevel.toUpperCase();
+            if (level === 'SAFE' || level === 'LOW') {
+                return 'approved';
+            } else if (level === 'HIGH' || level === 'CRITICAL') {
+                return 'rejected';
+            } else {
+                return 'review';
+            }
+        }
+    </script>
+</body>
+</html>

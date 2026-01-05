@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API 테스트</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 5px;
+            white-space: pre-wrap;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <h1>의료광고 분석 API 테스트</h1>
+
+    <div>
+        <input type="file" id="fileInput" accept="image/*">
+        <button onclick="testAPI()">분석 시작</button>
+    </div>
+
+    <div id="result" class="result"></div>
+
+    <script>
+        async function testAPI() {
+            const fileInput = document.getElementById('fileInput');
+            const resultDiv = document.getElementById('result');
+
+            if (!fileInput.files[0]) {
+                resultDiv.innerHTML = '<span class="error">파일을 선택해주세요!</span>';
+                return;
+            }
+
+            resultDiv.innerHTML = '분석 중...';
+
+            try {
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                formData.append('use_ai', 'false');
+
+                console.log('📤 Sending request...');
+
+                const response = await fetch('http://localhost:8000/api/ocr-analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                console.log('📥 Response status:', response.status);
+
+                const data = await response.json();
+                console.log('📥 Response data:', data);
+
+                if (data.success) {
+                    resultDiv.innerHTML = `
+<span class="success">✅ 분석 성공!</span>
+
+<strong>OCR 결과:</strong>
+${data.ocr_result.text}
+
+<strong>분석 결과:</strong>
+- 총점: ${data.analysis_result.total_score}점
+- 위험도: ${data.analysis_result.risk_level}
+- 위반 건수: ${data.analysis_result.violation_count}건
+
+<strong>위반 목록:</strong>
+${data.analysis_result.violations.map((v, i) =>
+    `${i+1}. [${v.severity}] ${v.keyword} (${v.total_score}점)`
+).join('\n')}
+
+<strong>요약:</strong>
+${data.analysis_result.summary}
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ 분석 실패: ${data.error}</span>`;
+                }
+            } catch (error) {
+                console.error('❌ Error:', error);
+                resultDiv.innerHTML = `<span class="error">❌ 오류: ${error.message}</span>`;
+            }
+        }
+    </script>
+</body>
+</html>

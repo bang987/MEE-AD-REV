@@ -1,0 +1,23 @@
+# FastAPI Backend
+fastapi>=0.109.0
+uvicorn[standard]>=0.31.1
+python-multipart>=0.0.9
+
+# AI/ML
+openai==1.54.0
+
+# HTTP Client
+requests==2.31.0
+httpx==0.27.2
+
+# Image Processing
+Pillow==10.2.0
+
+# Environment Variables
+python-dotenv==1.0.0
+
+# Data Validation (already included with FastAPI)
+pydantic==2.12.5
+
+# CORS
+fastapi-cors==0.0.6
