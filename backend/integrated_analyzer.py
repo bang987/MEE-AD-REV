@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from typing import Dict, Optional
 from dotenv import load_dotenv
-from ad_analyzer import analyze_complete, ViolationResult
+from ad_analyzer import analyze_complete
 
 load_dotenv()
 

@@ -13,6 +13,10 @@ httpx==0.27.2
 # Image Processing
 Pillow==10.2.0
 
+# PaddleOCR (로컬 OCR 엔진 - PP-OCRv4)
+paddlepaddle>=2.6.0
+paddleocr>=2.8.0
+
 # Environment Variables
 python-dotenv==1.0.0
 

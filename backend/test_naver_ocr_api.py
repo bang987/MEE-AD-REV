@@ -134,7 +134,7 @@ def test_naver_ocr_with_image(image_path: str):
                 for field in result["images"][0].get("fields", []):
                     extracted_text += field.get("inferText", "") + " "
 
-            print(f"\n✅ OCR 성공!")
+            print("\n✅ OCR 성공!")
             print(f"추출된 텍스트: {extracted_text.strip()}")
             print(f"\n📊 응답 상태: {response.status_code}")
 

@@ -103,11 +103,11 @@ def test_ocr_single_image(image_path: str):
                 avg_confidence = 0.0
 
             # 결과 출력
-            print(f"\n✅ OCR 성공!")
+            print("\n✅ OCR 성공!")
             print(f"⏱️  처리 시간: {elapsed_time:.2f}초")
             print(f"📊 신뢰도: {avg_confidence:.1f}%")
             print(f"📝 추출된 필드 수: {fields_count}개")
-            print(f"\n추출된 텍스트:")
+            print("\n추출된 텍스트:")
             print("-" * 60)
             print(extracted_text.strip())
             print("-" * 60)
@@ -163,7 +163,7 @@ def main():
         print("   .env 파일에 NAVER_OCR_API_URL과 NAVER_OCR_SECRET_KEY를 설정하세요.")
         return
 
-    print(f"\n✅ API 설정 확인 완료")
+    print("\n✅ API 설정 확인 완료")
     print(f"   URL: {NAVER_OCR_API_URL[:50]}...")
 
     # 테스트할 샘플 이미지 3개 선택

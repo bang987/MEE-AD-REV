@@ -62,7 +62,7 @@ try:
                 text = field.get("inferText", "")
                 extracted_text += text + " "
 
-        print(f"✅ OCR 성공!")
+        print("✅ OCR 성공!")
         print(f"\n추출된 텍스트:\n{extracted_text.strip()}")
     else:
         print(f"❌ OCR 실패: {response.status_code}")

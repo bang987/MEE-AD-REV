@@ -17,20 +17,20 @@ def print_analysis_result(result, test_name):
         return
 
     # OCR 결과
-    print(f"\n📷 OCR 결과:")
+    print("\n📷 OCR 결과:")
     print(f"  - 신뢰도: {result.ocr_confidence:.1f}%")
     print(f"  - 처리 시간: {result.ocr_processing_time:.2f}초")
-    print(f"  - 추출된 텍스트:")
+    print("  - 추출된 텍스트:")
     print(f"    {result.ocr_text[:150]}...")
 
     # 키워드 분석 결과
-    print(f"\n🔍 키워드 분석:")
+    print("\n🔍 키워드 분석:")
     print(f"  - 총점: {result.total_score}점")
     print(f"  - 위험도: {result.risk_level}")
     print(f"  - 위반 건수: {len(result.violations)}건")
 
     if result.violations:
-        print(f"  - 발견된 위반 (상위 5개):")
+        print("  - 발견된 위반 (상위 5개):")
         for i, v in enumerate(result.violations[:5], 1):
             count_str = f" (x{v['count']})" if v.get('count', 1) > 1 else ""
             bonus_str = f" +{v.get('repetition_bonus', 0)}점" if v.get('repetition_bonus', 0) > 0 else ""
@@ -38,10 +38,10 @@ def print_analysis_result(result, test_name):
             print(f"       법조항: {v['law']}")
 
     # AI 분석 결과
-    print(f"\n🤖 GPT-4 분석:")
+    print("\n🤖 GPT-4 분석:")
     if result.ai_analysis:
         print(f"  - 처리 시간: {result.ai_processing_time:.2f}초")
-        print(f"  - 분석 내용:")
+        print("  - 분석 내용:")
         print("-" * 60)
         # 첫 500자만 출력
         analysis_preview = result.ai_analysis[:500]
@@ -53,18 +53,18 @@ def print_analysis_result(result, test_name):
         print("  ❌ AI 분석 없음")
 
     # 최종 판정
-    print(f"\n⚖️  최종 판정:")
+    print("\n⚖️  최종 판정:")
     print(f"  - 결과: {result.pass_fail}")
     print(f"  - 권고: {result.recommendation}")
 
     # 처리 시간
-    print(f"\n⏱️  처리 시간:")
+    print("\n⏱️  처리 시간:")
     print(f"  - OCR: {result.ocr_processing_time:.2f}초")
     print(f"  - AI 분석: {result.ai_processing_time:.2f}초")
     print(f"  - 총 시간: {result.total_processing_time:.2f}초")
 
     # Day 3 완료 기준 확인
-    print(f"\n✅ Day 3 완료 기준 검증:")
+    print("\n✅ Day 3 완료 기준 검증:")
     if result.ocr_text:
         print("   ✅ OCR 텍스트 추출 성공")
 
@@ -112,7 +112,7 @@ def main():
         print(f"   - 키워드 탐지: {len(result.violations)}건")
         print(f"   - AI 분석: {'완료' if result.ai_analysis else '미완료'}")
         print(f"   - 최종 판정: {result.pass_fail}")
-        print(f"\n✅ Day 3 모든 요구사항 충족!")
+        print("\n✅ Day 3 모든 요구사항 충족!")
     else:
         print(f"❌ 테스트 실패: {result.error}")
 

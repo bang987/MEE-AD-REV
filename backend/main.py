@@ -3,7 +3,6 @@ FastAPI 백엔드 메인 애플리케이션
 """
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import os
@@ -15,8 +14,16 @@ import shutil
 from datetime import datetime, timedelta
 import asyncio
 import uuid
-from ad_analyzer import analyze_complete, analyze_keywords
+from enum import Enum
+from ad_analyzer import analyze_complete
 from medical_keywords import keyword_db
+from paddle_ocr import perform_paddle_ocr
+
+
+class OCREngine(str, Enum):
+    """OCR 엔진 선택"""
+    NAVER = "naver"
+    PADDLE = "paddle"
 
 # .env 파일 로드
 load_dotenv()
@@ -139,7 +146,7 @@ async def process_ocr(file: UploadFile = File(...)):
             temp_file_path.unlink()
 
 
-async def perform_ocr(image_path: Path) -> dict:
+async def perform_naver_ocr(image_path: Path) -> dict:
     """
     Naver Clova OCR API를 사용하여 이미지에서 텍스트 추출
 
@@ -248,6 +255,23 @@ async def perform_ocr(image_path: Path) -> dict:
         }
 
 
+async def perform_ocr(image_path: Path, engine: OCREngine = OCREngine.NAVER) -> dict:
+    """
+    OCR 엔진 선택에 따라 적절한 OCR 수행
+
+    Args:
+        image_path: 이미지 파일 경로
+        engine: OCR 엔진 선택 (naver 또는 paddle)
+
+    Returns:
+        dict: OCR 결과 (두 엔진 모두 동일한 형식)
+    """
+    if engine == OCREngine.PADDLE:
+        return await perform_paddle_ocr(image_path)
+    else:
+        return await perform_naver_ocr(image_path)
+
+
 @app.post("/api/ocr/batch")
 async def process_batch_ocr(files: List[UploadFile] = File(...)):
     """
@@ -340,7 +364,12 @@ class ClassifyRequest(BaseModel):
 batch_status_store: Dict[str, BatchAnalysisStatus] = {}
 
 
-async def process_single_file_async(file_path: Path, filename: str, use_ai: bool) -> Dict[str, Any]:
+async def process_single_file_async(
+    file_path: Path,
+    filename: str,
+    use_ai: bool,
+    ocr_engine: OCREngine = OCREngine.NAVER
+) -> Dict[str, Any]:
     """
     단일 파일 비동기 OCR + 분석
 
@@ -348,13 +377,14 @@ async def process_single_file_async(file_path: Path, filename: str, use_ai: bool
         file_path: 파일 경로
         filename: 원본 파일명
         use_ai: AI 분석 사용 여부
+        ocr_engine: OCR 엔진 선택
 
     Returns:
         dict: 분석 결과
     """
     try:
         # OCR 처리
-        ocr_result = await perform_ocr(file_path)
+        ocr_result = await perform_ocr(file_path, engine=ocr_engine)
 
         if not ocr_result["success"]:
             return {
@@ -398,7 +428,13 @@ async def process_single_file_async(file_path: Path, filename: str, use_ai: bool
         }
 
 
-async def batch_analyze_files(batch_id: str, file_paths: List[tuple], use_ai: bool, max_concurrent: int = 5):
+async def batch_analyze_files(
+    batch_id: str,
+    file_paths: List[tuple],
+    use_ai: bool,
+    ocr_engine: OCREngine = OCREngine.NAVER,
+    max_concurrent: int = 5
+):
     """
     배치 파일 병렬 분석
 
@@ -406,11 +442,10 @@ async def batch_analyze_files(batch_id: str, file_paths: List[tuple], use_ai: bo
         batch_id: 배치 ID
         file_paths: [(파일경로, 원본파일명), ...] 리스트
         use_ai: AI 분석 사용 여부
+        ocr_engine: OCR 엔진 선택
         max_concurrent: 최대 동시 처리 수
     """
     semaphore = asyncio.Semaphore(max_concurrent)
-    results = []
-    errors = []
 
     # 시작 시간 기록
     start_time = datetime.now()
@@ -420,9 +455,7 @@ async def batch_analyze_files(batch_id: str, file_paths: List[tuple], use_ai: bo
 
     async def process_with_semaphore(file_path: Path, filename: str):
         async with semaphore:
-            file_start = datetime.now()
-            result = await process_single_file_async(file_path, filename, use_ai)
-            file_elapsed = (datetime.now() - file_start).total_seconds()
+            result = await process_single_file_async(file_path, filename, use_ai, ocr_engine)
 
             # 진행률 업데이트
             if batch_id in batch_status_store:
@@ -462,7 +495,7 @@ async def batch_analyze_files(batch_id: str, file_paths: List[tuple], use_ai: bo
     try:
         # 모든 파일 병렬 처리
         tasks = [process_with_semaphore(path, name) for path, name in file_paths]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        await asyncio.gather(*tasks, return_exceptions=True)
 
         # 상태 업데이트
         if batch_id in batch_status_store:
@@ -568,7 +601,8 @@ async def get_keywords():
 @app.post("/api/ocr-analyze", response_model=OCRAnalysisResponse)
 async def process_ocr_and_analyze(
     file: UploadFile = File(...),
-    use_ai: bool = Form(False)
+    use_ai: bool = Form(False),
+    ocr_engine: str = Form("naver")
 ):
     """
     이미지 OCR + 광고 위반 분석 통합
@@ -576,18 +610,23 @@ async def process_ocr_and_analyze(
     Args:
         file: 업로드된 이미지 파일
         use_ai: AI 분석 사용 여부
+        ocr_engine: OCR 엔진 선택 (naver 또는 paddle)
 
     Returns:
         OCRAnalysisResponse: OCR 및 분석 결과
     """
     start_time = datetime.now()
 
-    # API 설정 확인
-    if not NAVER_OCR_API_URL or not NAVER_OCR_SECRET_KEY:
-        raise HTTPException(
-            status_code=500,
-            detail="OCR API 설정이 올바르지 않습니다."
-        )
+    # OCR 엔진 결정
+    engine = OCREngine(ocr_engine) if ocr_engine in ["naver", "paddle"] else OCREngine.NAVER
+
+    # Naver OCR 선택 시에만 API 키 검증
+    if engine == OCREngine.NAVER:
+        if not NAVER_OCR_API_URL or not NAVER_OCR_SECRET_KEY:
+            raise HTTPException(
+                status_code=500,
+                detail="Naver OCR API 설정이 올바르지 않습니다."
+            )
 
     # 파일 확장자 검증
     file_ext = Path(file.filename).suffix.lower()
@@ -606,7 +645,7 @@ async def process_ocr_and_analyze(
             shutil.copyfileobj(file.file, buffer)
 
         # 1. OCR 처리
-        ocr_result = await perform_ocr(temp_file_path)
+        ocr_result = await perform_ocr(temp_file_path, engine=engine)
 
         if not ocr_result["success"]:
             return OCRAnalysisResponse(
@@ -657,6 +696,7 @@ async def process_ocr_and_analyze(
 async def batch_upload_analyze(
     files: List[UploadFile] = File(...),
     use_ai: bool = Form(False),
+    ocr_engine: str = Form("naver"),
     background_tasks: BackgroundTasks = None
 ):
     """
@@ -665,11 +705,15 @@ async def batch_upload_analyze(
     Args:
         files: 업로드된 이미지 파일 리스트 (최대 50개)
         use_ai: AI 분석 사용 여부
+        ocr_engine: OCR 엔진 선택 (naver 또는 paddle)
         background_tasks: 백그라운드 작업
 
     Returns:
         dict: batch_id 및 초기 상태
     """
+    # OCR 엔진 결정
+    engine = OCREngine(ocr_engine) if ocr_engine in ["naver", "paddle"] else OCREngine.NAVER
+
     # 파일 수 제한
     if len(files) > 50:
         raise HTTPException(
@@ -722,7 +766,7 @@ async def batch_upload_analyze(
         )
 
         # 백그라운드에서 배치 분석 시작
-        background_tasks.add_task(batch_analyze_files, batch_id, file_paths, use_ai)
+        background_tasks.add_task(batch_analyze_files, batch_id, file_paths, use_ai, engine)
 
         return {
             "success": True,

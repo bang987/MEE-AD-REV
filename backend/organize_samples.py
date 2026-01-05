@@ -2,7 +2,6 @@
 샘플 이미지 정리 및 확인 스크립트
 """
 
-import os
 from pathlib import Path
 from PIL import Image
 
@@ -87,9 +86,9 @@ def check_samples():
 
             # 경고 체크
             if width < 800 or height < 600:
-                print(f"    ⚠️  해상도가 낮습니다 (최소 800x600 권장)")
+                print("    ⚠️  해상도가 낮습니다 (최소 800x600 권장)")
             if file_size > 10:
-                print(f"    ⚠️  파일 크기가 큽니다 (10MB 이하 권장)")
+                print("    ⚠️  파일 크기가 큽니다 (10MB 이하 권장)")
 
             print()
 

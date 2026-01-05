@@ -50,11 +50,11 @@ def test_openai_connection():
 
         # 응답 확인
         answer = response.choices[0].message.content
-        print(f"\n✅ GPT-4 응답 성공!")
+        print("\n✅ GPT-4 응답 성공!")
         print(f"응답 내용: {answer}")
 
         # 사용량 확인
-        print(f"\n📊 토큰 사용량:")
+        print("\n📊 토큰 사용량:")
         print(f"  - 입력 토큰: {response.usage.prompt_tokens}")
         print(f"  - 출력 토큰: {response.usage.completion_tokens}")
         print(f"  - 총 토큰: {response.usage.total_tokens}")

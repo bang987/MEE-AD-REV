@@ -2,7 +2,6 @@
 광고 분석 API 테스트 스크립트
 """
 import requests
-import json
 
 BASE_URL = "http://localhost:8000"
 
@@ -36,13 +35,13 @@ def test_text_analysis():
         if response.status_code == 200:
             result = response.json()
 
-            print(f"\n✅ 분석 성공!")
+            print("\n✅ 분석 성공!")
             print(f"\n위험도: {result['risk_level']}")
             print(f"총점: {result['total_score']}")
             print(f"위반 건수: {result['violation_count']}")
             print(f"\n요약: {result['summary']}")
 
-            print(f"\n발견된 위반 사항:")
+            print("\n발견된 위반 사항:")
             print("-" * 80)
             for v in result['violations']:
                 print(f"  [{v['severity']}] {v['keyword']}")
@@ -86,28 +85,28 @@ def test_ocr_analysis():
         if response.status_code == 200:
             result = response.json()
 
-            print(f"\n✅ OCR + 분석 성공!")
+            print("\n✅ OCR + 분석 성공!")
             print(f"파일명: {result['filename']}")
 
             # OCR 결과
             ocr = result['ocr_result']
-            print(f"\n📄 OCR 결과:")
+            print("\n📄 OCR 결과:")
             print(f"  신뢰도: {ocr['confidence']}")
             print(f"  필드 수: {ocr['fields_count']}")
             print(f"  처리 시간: {ocr['processing_time']:.2f}초")
-            print(f"  추출 텍스트 (처음 200자):")
+            print("  추출 텍스트 (처음 200자):")
             print(f"  {ocr['text'][:200]}...")
 
             # 분석 결과
             analysis = result['analysis_result']
-            print(f"\n⚠️  광고 위반 분석:")
+            print("\n⚠️  광고 위반 분석:")
             print(f"  위험도: {analysis['risk_level']}")
             print(f"  총점: {analysis['total_score']}")
             print(f"  위반 건수: {analysis['violation_count']}")
             print(f"  요약: {analysis['summary']}")
 
             if analysis['violations']:
-                print(f"\n  주요 위반 사항 (상위 5개):")
+                print("\n  주요 위반 사항 (상위 5개):")
                 for v in analysis['violations'][:5]:
                     print(f"    • {v['keyword']} ({v['severity']}) - {v['category']}")
 

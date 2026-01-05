@@ -3,7 +3,6 @@ FastAPI OCR 엔드포인트 테스트 스크립트
 """
 import requests
 from pathlib import Path
-import json
 
 
 def test_health_check():
@@ -52,12 +51,12 @@ def test_ocr_single_image(image_path: str):
         if response.status_code == 200:
             result = response.json()
 
-            print(f"✅ OCR 성공!")
+            print("✅ OCR 성공!")
             print(f"\n파일명: {result['filename']}")
             print(f"처리 시간: {result['processing_time']:.2f}초")
             print(f"신뢰도: {result['confidence']}%")
             print(f"필드 수: {result['fields_count']}")
-            print(f"\n추출된 텍스트 (처음 200자):")
+            print("\n추출된 텍스트 (처음 200자):")
             print("-" * 80)
             text_preview = result['text'][:200] + "..." if len(result['text']) > 200 else result['text']
             print(text_preview)

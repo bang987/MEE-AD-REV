@@ -48,19 +48,19 @@ for i, test_case in enumerate(test_cases, 1):
     print(f"\n⏱️  처리 시간: {elapsed_time:.2f}초")
 
     # 키워드 분석 결과
-    print(f"\n📊 키워드 분석:")
+    print("\n📊 키워드 분석:")
     print(f"  - 총점: {result.total_score}점")
     print(f"  - 위험도: {result.risk_level}")
     print(f"  - 위반 건수: {len(result.violations)}건")
 
     if result.violations:
-        print(f"  - 발견된 키워드:")
+        print("  - 발견된 키워드:")
         for v in result.violations[:5]:  # 상위 5개만
             count_info = f" (x{v['count']})" if v.get('count', 1) > 1 else ""
             print(f"    • {v['keyword']}{count_info}: {v['severity']} - {v['law']}")
 
     # GPT-4 분석 결과
-    print(f"\n🤖 GPT-4 분석:")
+    print("\n🤖 GPT-4 분석:")
     if result.ai_analysis:
         print("-" * 60)
         print(result.ai_analysis)

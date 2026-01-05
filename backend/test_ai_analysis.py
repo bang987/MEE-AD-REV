@@ -2,7 +2,6 @@
 AI 광고 분석 테스트
 """
 import requests
-import json
 
 BASE_URL = "http://localhost:8000"
 
@@ -50,14 +49,14 @@ def test_ai_text_analysis():
             print(f"{'='*80}")
 
             # 키워드 기반 분석 결과
-            print(f"\n📊 키워드 기반 분석 결과:")
+            print("\n📊 키워드 기반 분석 결과:")
             print(f"  위험도: {result['risk_level']}")
             print(f"  총점: {result['total_score']}")
             print(f"  위반 건수: {result['violation_count']}")
             print(f"  요약: {result['summary']}")
 
             # 발견된 위반 사항
-            print(f"\n⚠️  발견된 위반 키워드:")
+            print("\n⚠️  발견된 위반 키워드:")
             for v in result['violations']:
                 print(f"  • [{v['severity']}] {v['keyword']} - {v['category']}")
 
@@ -68,7 +67,7 @@ def test_ai_text_analysis():
                 print(f"{'='*80}")
                 print(result['ai_analysis'])
             else:
-                print(f"\n⚠️  AI 분석 결과를 받지 못했습니다.")
+                print("\n⚠️  AI 분석 결과를 받지 못했습니다.")
 
             return True
         else:
@@ -119,24 +118,24 @@ def test_ai_ocr_analysis():
 
             # OCR 결과
             ocr = result['ocr_result']
-            print(f"\n📄 OCR 결과:")
+            print("\n📄 OCR 결과:")
             print(f"  파일명: {result['filename']}")
             print(f"  신뢰도: {ocr['confidence']}")
             print(f"  필드 수: {ocr['fields_count']}")
             print(f"  처리 시간: {ocr['processing_time']:.2f}초")
-            print(f"\n  추출된 텍스트:")
+            print("\n  추출된 텍스트:")
             print(f"  {ocr['text']}")
 
             # 분석 결과
             analysis = result['analysis_result']
-            print(f"\n📊 광고 위반 분석:")
+            print("\n📊 광고 위반 분석:")
             print(f"  위험도: {analysis['risk_level']}")
             print(f"  총점: {analysis['total_score']}")
             print(f"  위반 건수: {analysis['violation_count']}")
             print(f"  요약: {analysis['summary']}")
 
             if analysis['violations']:
-                print(f"\n  위반 키워드:")
+                print("\n  위반 키워드:")
                 for v in analysis['violations']:
                     print(f"    • [{v['severity']}] {v['keyword']} - {v['category']}")
 
@@ -147,7 +146,7 @@ def test_ai_ocr_analysis():
                 print(f"{'='*80}")
                 print(analysis['ai_analysis'])
             else:
-                print(f"\n⚠️  AI 분석 결과를 받지 못했습니다.")
+                print("\n⚠️  AI 분석 결과를 받지 못했습니다.")
 
             return True
         else:

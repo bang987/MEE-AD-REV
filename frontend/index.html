@@ -76,8 +76,11 @@
             background: #f7fafc;
             border-radius: 8px;
         }
-        .ai-option label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
-        .ai-option input[type="checkbox"] { width: 16px; height: 16px; }
+        .ai-option .option-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
+        .ai-option .option-row:last-child { margin-bottom: 0; }
+        .ai-option .option-label { font-size: 0.9rem; color: #4a5568; font-weight: 600; min-width: 70px; }
+        .ai-option .radio-label, .ai-option .checkbox-label { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; }
+        .ai-option input[type="checkbox"], .ai-option input[type="radio"] { width: 16px; height: 16px; accent-color: #667eea; }
         .ai-option span { font-size: 0.9rem; color: #2d3748; }
 
         .button-group { display: flex; gap: 0.75rem; margin-top: 1rem; }
@@ -246,11 +249,18 @@
 
                 <div id="selected-files-list" class="selected-files-list"></div>
 
-                <div id="batch-ai-option" class="ai-option" style="display: none;">
-                    <label>
-                        <input type="checkbox" id="batch-use-ai">
-                        <span>GPT-4 AI 분석 사용 (법규 근거 포함, +15초/파일)</span>
-                    </label>
+                <div id="batch-options" class="ai-option" style="display: none;">
+                    <div class="option-row">
+                        <span class="option-label">OCR 엔진:</span>
+                        <label class="radio-label"><input type="radio" name="ocr-engine" value="naver" checked><span>Naver OCR (클라우드, 정확도 99%)</span></label>
+                        <label class="radio-label"><input type="radio" name="ocr-engine" value="paddle"><span>PaddleOCR (로컬, 무료)</span></label>
+                    </div>
+                    <div class="option-row">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="batch-use-ai">
+                            <span>GPT-4 AI 분석 사용 (법규 근거 포함, +15초/파일)</span>
+                        </label>
+                    </div>
                 </div>
 
                 <div class="button-group">
@@ -333,7 +343,7 @@
 
         const batchFileInput = document.getElementById('batch-file-input');
         const selectedFilesList = document.getElementById('selected-files-list');
-        const batchAiOption = document.getElementById('batch-ai-option');
+        const batchOptions = document.getElementById('batch-options');
         const batchUseAI = document.getElementById('batch-use-ai');
         const batchAnalyzeBtn = document.getElementById('batch-analyze-btn');
         const batchResetBtn = document.getElementById('batch-reset-btn');
@@ -364,31 +374,48 @@
                 `<div class="file-item"><span>${f.name}</span><span class="file-item-size">${(f.size/1024).toFixed(1)}KB</span></div>`
             ).join('');
             selectedFilesList.classList.add('show');
-            batchAiOption.style.display = 'block';
+            batchOptions.style.display = 'block';
             batchAnalyzeBtn.disabled = false;
             batchResetBtn.style.display = 'inline-block';
         });
+
+        // 프로그레스바 업데이트 함수
+        function updateProgress(percent, statusText) {
+            progressBar.style.width = `${percent}%`;
+            progressBar.textContent = `${percent}%`;
+            progressText.textContent = statusText;
+        }
 
         // 분석 시작
         batchAnalyzeBtn.addEventListener('click', async () => {
             if (selectedBatchFiles.length === 0) return;
 
             batchAnalyzeBtn.disabled = true;
-            batchAnalyzeBtn.textContent = '분석 중...';
+            batchAnalyzeBtn.textContent = '업로드 중...';
             progressSection.style.display = 'block';
             batchResultSection.style.display = 'none';
             resultSection.classList.remove('show');
+
+            // 업로드 시작: 0%
+            updateProgress(0, '파일 업로드 중...');
 
             try {
                 const formData = new FormData();
                 selectedBatchFiles.forEach(file => formData.append('files', file));
                 formData.append('use_ai', batchUseAI.checked ? 'true' : 'false');
+                const selectedOcrEngine = document.querySelector('input[name="ocr-engine"]:checked').value;
+                formData.append('ocr_engine', selectedOcrEngine);
 
                 const response = await fetch(`${API_BASE_URL}/api/batch-upload-analyze`, { method: 'POST', body: formData });
                 if (!response.ok) throw new Error('배치 분석 시작 실패');
 
                 const data = await response.json();
                 currentBatchId = data.batch_id;
+
+                // 업로드 완료: 30%
+                updateProgress(30, '업로드 완료! 분석 시작 중...');
+                batchAnalyzeBtn.textContent = '분석 중...';
+
                 startPolling(currentBatchId);
             } catch (error) {
                 alert(`오류: ${error.message}`);
@@ -403,10 +430,26 @@
                     if (!response.ok) throw new Error('상태 조회 실패');
 
                     const status = await response.json();
-                    const percent = status.progress_percent.toFixed(1);
-                    progressBar.style.width = `${percent}%`;
-                    progressBar.textContent = `${percent}%`;
-                    progressText.textContent = `${status.processed_files}/${status.total_files} (${percent}%)`;
+
+                    // 서버 진행률(0-100%)을 30-70% 범위로 매핑
+                    // 업로드 완료: 30%, 분석 진행: 30-70%, 분석 완료: 100%
+                    const serverPercent = status.progress_percent;
+                    let displayPercent;
+                    let statusText;
+
+                    if (status.status === 'completed') {
+                        displayPercent = 100;
+                        statusText = `분석 완료! ${status.processed_files}/${status.total_files}`;
+                    } else if (status.status === 'processing') {
+                        // 30% + (서버진행률 * 0.4) = 30% ~ 70% 범위
+                        displayPercent = Math.round(30 + (serverPercent * 0.4));
+                        statusText = `분석 진행 중... ${status.processed_files}/${status.total_files}`;
+                    } else {
+                        displayPercent = 30;
+                        statusText = `대기 중... ${status.processed_files}/${status.total_files}`;
+                    }
+
+                    updateProgress(displayPercent, statusText);
 
                     if (status.status === 'completed') {
                         clearInterval(pollingInterval);
@@ -594,13 +637,14 @@
             batchFileInput.value = '';
             selectedFilesList.innerHTML = '';
             selectedFilesList.classList.remove('show');
-            batchAiOption.style.display = 'none';
+            batchOptions.style.display = 'none';
             batchAnalyzeBtn.disabled = true;
             batchResetBtn.style.display = 'none';
             progressSection.style.display = 'none';
             batchResultSection.style.display = 'none';
             resultSection.classList.remove('show');
             batchUseAI.checked = false;
+            document.querySelector('input[name="ocr-engine"][value="naver"]').checked = true;
             if (pollingInterval) { clearInterval(pollingInterval); pollingInterval = null; }
         });
     </script>
