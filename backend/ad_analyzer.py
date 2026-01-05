@@ -227,23 +227,24 @@ def analyze_with_ai(text: str, keyword_result: Optional[ViolationResult] = None,
             model="gpt-5.2",
             instructions="당신은 대한민국 의료법 전문가입니다. 제공된 법규 조항을 정확히 인용하여 분석하세요.",
             input=[{"role": "user", "content": prompt}],
-            max_output_tokens=1500,
-            reasoning={"effort": "high"}
+            max_output_tokens=1500  # reasoning 토큰 + 실제 응답 토큰
+
         )
 
-        return response.output_text
+        return response.output_text or ""
 
     except Exception as e:
         return f"AI 분석 중 오류 발생: {str(e)}"
 
 
-def analyze_complete(text: str, use_ai: bool = True) -> ViolationResult:
+def analyze_complete(text: str, use_ai: bool = True, use_rag: bool = True) -> ViolationResult:
     """
     완전한 광고 분석 (키워드 + AI)
 
     Args:
         text: 분석할 텍스트
         use_ai: AI 분석 사용 여부
+        use_rag: RAG (법규 검색) 사용 여부
 
     Returns:
         ViolationResult: 종합 분석 결과
@@ -254,7 +255,7 @@ def analyze_complete(text: str, use_ai: bool = True) -> ViolationResult:
     # 2. AI 분석 (옵션)
     if use_ai and os.getenv("OPENAI_API_KEY"):
         try:
-            result.ai_analysis = analyze_with_ai(text, result)
+            result.ai_analysis = analyze_with_ai(text, result, use_rag=use_rag)
         except Exception as e:
             result.ai_analysis = f"AI 분석 실패: {str(e)}"
 

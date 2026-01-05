@@ -258,8 +258,13 @@
                     <div class="option-row">
                         <label class="checkbox-label">
                             <input type="checkbox" id="batch-use-ai">
-                            <span>GPT-4 AI 분석 사용 (법규 근거 포함, +15초/파일)</span>
+                            <span>GPT-5.2 AI 분석 사용 (법규 근거 포함, +15초/파일)</span>
                         </label>
+                    </div>
+                    <div class="option-row rag-options" id="rag-options" style="display: none; margin-left: 24px;">
+                        <span class="option-label">RAG 모드:</span>
+                        <label class="radio-label"><input type="radio" name="rag-mode" value="true" checked><span>RAG 적용 (법규 DB 검색, 정확한 법조항 인용)</span></label>
+                        <label class="radio-label"><input type="radio" name="rag-mode" value="false"><span>RAG 미적용 (GPT 내부 지식만 사용)</span></label>
                     </div>
                 </div>
 
@@ -345,6 +350,7 @@
         const selectedFilesList = document.getElementById('selected-files-list');
         const batchOptions = document.getElementById('batch-options');
         const batchUseAI = document.getElementById('batch-use-ai');
+        const ragOptions = document.getElementById('rag-options');
         const batchAnalyzeBtn = document.getElementById('batch-analyze-btn');
         const batchResetBtn = document.getElementById('batch-reset-btn');
         const progressSection = document.getElementById('progress-section');
@@ -357,6 +363,11 @@
         const classifyBtn = document.getElementById('classify-btn');
         const resultSection = document.getElementById('result-section');
         const resultContent = document.getElementById('result-content');
+
+        // AI 분석 체크박스 변경 시 RAG 옵션 표시/숨김
+        batchUseAI.addEventListener('change', () => {
+            ragOptions.style.display = batchUseAI.checked ? 'block' : 'none';
+        });
 
         // 파일 선택
         batchFileInput.addEventListener('change', (e) => {
@@ -403,6 +414,8 @@
                 const formData = new FormData();
                 selectedBatchFiles.forEach(file => formData.append('files', file));
                 formData.append('use_ai', batchUseAI.checked ? 'true' : 'false');
+                const selectedRagMode = document.querySelector('input[name="rag-mode"]:checked')?.value || 'true';
+                formData.append('use_rag', selectedRagMode);
                 const selectedOcrEngine = document.querySelector('input[name="ocr-engine"]:checked').value;
                 formData.append('ocr_engine', selectedOcrEngine);
 
@@ -571,7 +584,7 @@
             }
 
             if (analysis_result.ai_analysis) {
-                html += `<div class="result-card ai-analysis-card"><h3>AI 분석 (GPT-4)</h3><pre class="ai-analysis-text">${analysis_result.ai_analysis}</pre></div>`;
+                html += `<div class="result-card ai-analysis-card"><h3>AI 분석 (GPT-5.2)</h3><pre class="ai-analysis-text">${analysis_result.ai_analysis}</pre></div>`;
             }
 
             resultContent.innerHTML = html;

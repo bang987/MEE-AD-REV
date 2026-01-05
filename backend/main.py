@@ -315,6 +315,7 @@ async def process_batch_ocr(files: List[UploadFile] = File(...)):
 class AnalysisRequest(BaseModel):
     text: str
     use_ai: bool = False
+    use_rag: bool = True  # RAG (법규 검색) 사용 여부
 
 
 class AnalysisResponse(BaseModel):
@@ -368,7 +369,8 @@ async def process_single_file_async(
     file_path: Path,
     filename: str,
     use_ai: bool,
-    ocr_engine: OCREngine = OCREngine.NAVER
+    ocr_engine: OCREngine = OCREngine.NAVER,
+    use_rag: bool = True
 ) -> Dict[str, Any]:
     """
     단일 파일 비동기 OCR + 분석
@@ -378,6 +380,7 @@ async def process_single_file_async(
         filename: 원본 파일명
         use_ai: AI 분석 사용 여부
         ocr_engine: OCR 엔진 선택
+        use_rag: RAG (법규 검색) 사용 여부
 
     Returns:
         dict: 분석 결과
@@ -397,7 +400,7 @@ async def process_single_file_async(
 
         # 광고 분석
         extracted_text = ocr_result["text"]
-        analysis_result = analyze_complete(extracted_text, use_ai=use_ai)
+        analysis_result = analyze_complete(extracted_text, use_ai=use_ai, use_rag=use_rag)
 
         return {
             "filename": filename,
@@ -433,6 +436,7 @@ async def batch_analyze_files(
     file_paths: List[tuple],
     use_ai: bool,
     ocr_engine: OCREngine = OCREngine.NAVER,
+    use_rag: bool = True,
     max_concurrent: int = 5
 ):
     """
@@ -443,6 +447,7 @@ async def batch_analyze_files(
         file_paths: [(파일경로, 원본파일명), ...] 리스트
         use_ai: AI 분석 사용 여부
         ocr_engine: OCR 엔진 선택
+        use_rag: RAG (법규 검색) 사용 여부
         max_concurrent: 최대 동시 처리 수
     """
     semaphore = asyncio.Semaphore(max_concurrent)
@@ -455,7 +460,7 @@ async def batch_analyze_files(
 
     async def process_with_semaphore(file_path: Path, filename: str):
         async with semaphore:
-            result = await process_single_file_async(file_path, filename, use_ai, ocr_engine)
+            result = await process_single_file_async(file_path, filename, use_ai, ocr_engine, use_rag)
 
             # 진행률 업데이트
             if batch_id in batch_status_store:
@@ -533,7 +538,7 @@ async def analyze_advertisement(request: AnalysisRequest):
         AnalysisResponse: 광고 분석 결과
     """
     try:
-        result = analyze_complete(request.text, use_ai=request.use_ai)
+        result = analyze_complete(request.text, use_ai=request.use_ai, use_rag=request.use_rag)
 
         return AnalysisResponse(
             success=True,
@@ -601,7 +606,8 @@ async def get_keywords():
 @app.post("/api/ocr-analyze", response_model=OCRAnalysisResponse)
 async def process_ocr_and_analyze(
     file: UploadFile = File(...),
-    use_ai: bool = Form(False),
+    use_ai: str = Form("false"),
+    use_rag: str = Form("true"),
     ocr_engine: str = Form("naver")
 ):
     """
@@ -609,13 +615,18 @@ async def process_ocr_and_analyze(
 
     Args:
         file: 업로드된 이미지 파일
-        use_ai: AI 분석 사용 여부
+        use_ai: AI 분석 사용 여부 ("true"/"false")
+        use_rag: RAG (법규 검색) 사용 여부 ("true"/"false")
         ocr_engine: OCR 엔진 선택 (naver 또는 paddle)
 
     Returns:
         OCRAnalysisResponse: OCR 및 분석 결과
     """
     start_time = datetime.now()
+
+    # 문자열을 boolean으로 변환
+    use_ai_bool = use_ai.lower() == "true"
+    use_rag_bool = use_rag.lower() == "true"
 
     # OCR 엔진 결정
     engine = OCREngine(ocr_engine) if ocr_engine in ["naver", "paddle"] else OCREngine.NAVER
@@ -656,7 +667,7 @@ async def process_ocr_and_analyze(
 
         # 2. 광고 분석
         extracted_text = ocr_result["text"]
-        analysis_result = analyze_complete(extracted_text, use_ai=use_ai)
+        analysis_result = analyze_complete(extracted_text, use_ai=use_ai_bool, use_rag=use_rag_bool)
 
         # 처리 시간 계산
         processing_time = (datetime.now() - start_time).total_seconds()
@@ -695,7 +706,8 @@ async def process_ocr_and_analyze(
 @app.post("/api/batch-upload-analyze")
 async def batch_upload_analyze(
     files: List[UploadFile] = File(...),
-    use_ai: bool = Form(False),
+    use_ai: str = Form("false"),
+    use_rag: str = Form("true"),
     ocr_engine: str = Form("naver"),
     background_tasks: BackgroundTasks = None
 ):
@@ -704,13 +716,18 @@ async def batch_upload_analyze(
 
     Args:
         files: 업로드된 이미지 파일 리스트 (최대 50개)
-        use_ai: AI 분석 사용 여부
+        use_ai: AI 분석 사용 여부 ("true"/"false")
+        use_rag: RAG (법규 검색) 사용 여부 ("true"/"false")
         ocr_engine: OCR 엔진 선택 (naver 또는 paddle)
         background_tasks: 백그라운드 작업
 
     Returns:
         dict: batch_id 및 초기 상태
     """
+    # 문자열을 boolean으로 변환
+    use_ai_bool = use_ai.lower() == "true"
+    use_rag_bool = use_rag.lower() == "true"
+
     # OCR 엔진 결정
     engine = OCREngine(ocr_engine) if ocr_engine in ["naver", "paddle"] else OCREngine.NAVER
 
@@ -766,7 +783,7 @@ async def batch_upload_analyze(
         )
 
         # 백그라운드에서 배치 분석 시작
-        background_tasks.add_task(batch_analyze_files, batch_id, file_paths, use_ai, engine)
+        background_tasks.add_task(batch_analyze_files, batch_id, file_paths, use_ai_bool, engine, use_rag_bool)
 
         return {
             "success": True,
