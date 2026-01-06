@@ -14,6 +14,7 @@ type SortField = 'filename' | 'risk_level' | 'violations' | 'success';
 type SortDirection = 'asc' | 'desc';
 
 const riskOrder: Record<RiskLevel, number> = {
+  'N/A': 0,
   CRITICAL: 5,
   HIGH: 4,
   MEDIUM: 3,
@@ -90,6 +91,7 @@ export default function ResultsTable({ results, onViewDetail }: ResultsTableProp
 
   const riskCounts = useMemo(() => {
     const counts: Record<RiskLevel | 'ERROR', number> = {
+      'N/A': 0,
       CRITICAL: 0,
       HIGH: 0,
       MEDIUM: 0,
