@@ -5,8 +5,10 @@ PaddleOCR의 korean 모델 사용 (PP-OCRv5)
 from pathlib import Path
 import os
 
-# PaddleOCR 로그 비활성화
+# PaddleOCR/PaddleX 관련 환경변수 설정 (import 전에 설정)
 os.environ["PADDLE_SILENCE"] = "1"
+os.environ["FLAGS_use_mkldnn"] = "0"
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 _paddle_ocr_instance = None
 
@@ -19,12 +21,15 @@ def get_paddle_ocr_instance():
     global _paddle_ocr_instance
 
     if _paddle_ocr_instance is None:
-        from paddleocr import PaddleOCR
+        try:
+            from paddleocr import PaddleOCR
 
-        _paddle_ocr_instance = PaddleOCR(
-            lang='korean'            # 한국어 모델
-            # 기본 버전 사용 (PP-OCRv4는 한국어 미지원)
-        )
+            _paddle_ocr_instance = PaddleOCR(
+                lang='korean',           # 한국어 모델
+            )
+        except Exception as e:
+            print(f"PaddleOCR 초기화 오류: {e}")
+            raise e  # 에러를 상위로 전달
 
     return _paddle_ocr_instance
 

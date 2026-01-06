@@ -5,7 +5,7 @@
 - **버전**: MVP v3.5 (GPT-5.2 + RAG 선택 + PaddleOCR + Next.js 16 리디자인)
 - **목표 완료일**: 2026년 1월 14일
 - **작성일**: 2026년 1월 4일
-- **LLM**: GPT-5.2 (OpenAI Responses API + Reasoning)
+- **LLM**: GPT-5.2 (OpenAI Responses API)
 - **RAG**: Chroma 벡터 DB + OpenAI Embeddings (적용/미적용 선택 가능)
 - **OCR**: Naver Clova OCR + PaddleOCR (선택 가능)
 - **관리자**: RAG 문서 관리 페이지 (업로드/삭제/목록)
@@ -104,7 +104,6 @@ AI/ML:
   LLM: GPT-5.2 (OpenAI Responses API)
     - Model: gpt-5.2
     - API: client.responses.create()
-    - Reasoning: {"effort": "high"} 활성화
     - 한국어 법률 해석 최강
     - 비용: ~$2-3 (데모 전체)
   RAG (Retrieval-Augmented Generation):
@@ -757,7 +756,6 @@ Components:
 
 ### 5. GPT-5.2 법적 근거 (RAG 통합)
 - [x] **모델**: gpt-5.2 (OpenAI Responses API)
-- [x] **Reasoning**: {"effort": "high"} 활성화
 - [x] **RAG 통합**: Chroma 벡터 DB에서 관련 법규 검색 후 프롬프트 주입
 - [x] **프롬프트**: 의료법 전문가 페르소나 + RAG 컨텍스트
 - [x] **출력 형식**:
@@ -765,7 +763,7 @@ Components:
   위반 사항, 법적 근거 (RAG 검색 결과 활용), 권고 사항, 전체 평가
   ```
 - [x] **응답 길이**: 적절한 길이 (구조화된 형식)
-- [x] **응답 시간**: 10-15초 (reasoning 포함)
+- [x] **응답 시간**: 10-15초
 - [x] **법조항 포함율**: 95% 이상 (RAG로 정확도 향상)
 
 ### 6. 결과 대시보드
@@ -1069,9 +1067,9 @@ medical-ad-mvp/
 - v3.3 (2026-01-06): RAG 적용/미적용 옵션 추가
   - 프론트엔드 RAG 모드 라디오 버튼 추가
   - 백엔드 use_rag 파라미터 추가 (모든 분석 API)
-  - GPT-5.2 max_output_tokens 조정 (reasoning 토큰 고려)
+  - GPT-5.2 max_output_tokens 조정
 - v3.2 (2026-01-06): GPT-5.2 + RAG 구현
-  - GPT-4 → GPT-5.2 업그레이드 (Responses API + Reasoning)
+  - GPT-4 → GPT-5.2 업그레이드 (Responses API)
   - RAG 시스템 구현 (Chroma 벡터 DB + LangChain)
   - PDF 문서 지원 추가 (pypdf)
   - 의료법 제56조 법규 문서 임베딩

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Play, RotateCcw } from 'lucide-react';
+import { Play, RotateCcw, FolderOpen } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Message from '@/components/ui/Message';
 import UploadCard from '@/components/analysis/UploadCard';
@@ -9,8 +9,8 @@ import AnalysisOptions from '@/components/analysis/AnalysisOptions';
 import ProgressBar from '@/components/analysis/ProgressBar';
 import ResultsTable from '@/components/analysis/ResultsTable';
 import DetailModal from '@/components/analysis/DetailModal';
-import { startBatchAnalysis, getBatchStatus } from '@/lib/api';
-import { OCREngine, BatchFileResult, BatchStatus } from '@/types';
+import { startBatchAnalysis, getBatchStatus, classifyFiles } from '@/lib/api';
+import { OCREngine, BatchFileResult, BatchStatus, FileClassification, JudgmentType, RiskLevel } from '@/types';
 
 export default function HomePage() {
   // File selection
@@ -31,6 +31,8 @@ export default function HomePage() {
   // Results
   const [results, setResults] = useState<BatchFileResult[]>([]);
   const [selectedResult, setSelectedResult] = useState<BatchFileResult | null>(null);
+  const [lastBatchId, setLastBatchId] = useState<string | null>(null);
+  const [isClassifying, setIsClassifying] = useState(false);
 
   // Messages
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -72,6 +74,7 @@ export default function HomePage() {
 
       if (response.batch_id) {
         setBatchId(response.batch_id);
+        setLastBatchId(response.batch_id);
         startPolling(response.batch_id);
       } else {
         throw new Error('배치 ID를 받지 못했습니다.');
@@ -140,11 +143,95 @@ export default function HomePage() {
     setSelectedFiles([]);
     setIsAnalyzing(false);
     setBatchId(null);
+    setLastBatchId(null);
     setProgress(0);
     setCurrentFile('');
     setProcessedCount(0);
     setResults([]);
     setMessage(null);
+  };
+
+  // Helper function to determine category based on risk level
+  const getCategory = (riskLevel: RiskLevel): JudgmentType => {
+    switch (riskLevel) {
+      case 'SAFE':
+      case 'LOW':
+        return 'approved';
+      case 'MEDIUM':
+        return 'review';
+      case 'HIGH':
+      case 'CRITICAL':
+        return 'rejected';
+      default:
+        return 'review';
+    }
+  };
+
+  // Handle file classification
+  const handleClassify = async () => {
+    if (!lastBatchId || results.length === 0) {
+      setMessage({ type: 'error', text: '분류할 결과가 없습니다.' });
+      return;
+    }
+
+    // 분류될 파일 수 계산
+    const classifiableResults = results.filter((r) => r.success && r.analysis_result);
+    const approvedCount = classifiableResults.filter((r) =>
+      ['SAFE', 'LOW'].includes(r.analysis_result!.risk_level)
+    ).length;
+    const reviewCount = classifiableResults.filter((r) =>
+      r.analysis_result!.risk_level === 'MEDIUM'
+    ).length;
+    const rejectedCount = classifiableResults.filter((r) =>
+      ['HIGH', 'CRITICAL'].includes(r.analysis_result!.risk_level)
+    ).length;
+
+    // 확인 다이얼로그 표시
+    const confirmMessage = `파일을 판정 결과에 따라 분류하시겠습니까?\n\n` +
+      `• 승인 (approved): ${approvedCount}개\n` +
+      `• 검토필요 (review): ${reviewCount}개\n` +
+      `• 거부 (rejected): ${rejectedCount}개\n\n` +
+      `총 ${classifiableResults.length}개 파일이 해당 폴더로 이동됩니다.`;
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    setIsClassifying(true);
+    setMessage(null);
+
+    try {
+      const classifications: FileClassification[] = results
+        .filter((r) => r.success && r.analysis_result)
+        .map((r) => ({
+          filename: r.filename,
+          category: getCategory(r.analysis_result!.risk_level),
+        }));
+
+      if (classifications.length === 0) {
+        setMessage({ type: 'error', text: '분류 가능한 파일이 없습니다.' });
+        setIsClassifying(false);
+        return;
+      }
+
+      const response = await classifyFiles(lastBatchId, classifications);
+
+      if (response.success) {
+        setMessage({
+          type: 'success',
+          text: `파일 분류 완료: ${response.success_count}개 성공, ${response.failed_count}개 실패`,
+        });
+      } else {
+        throw new Error('분류 실패');
+      }
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : '파일 분류에 실패했습니다.',
+      });
+    } finally {
+      setIsClassifying(false);
+    }
   };
 
   // Cleanup on unmount
@@ -225,10 +312,24 @@ export default function HomePage() {
 
           {/* Results Table */}
           {results.length > 0 && (
-            <ResultsTable
-              results={results}
-              onViewDetail={(result) => setSelectedResult(result)}
-            />
+            <>
+              <ResultsTable
+                results={results}
+                onViewDetail={(result) => setSelectedResult(result)}
+              />
+              {/* Classify Button */}
+              <div className="flex justify-end">
+                <Button
+                  variant="primary"
+                  onClick={handleClassify}
+                  disabled={isClassifying || !lastBatchId}
+                  isLoading={isClassifying}
+                >
+                  <FolderOpen className="h-4 w-4 mr-2" />
+                  판정 결과에 따라 파일 분류
+                </Button>
+              </div>
+            </>
           )}
 
           {/* Empty State */}

@@ -57,7 +57,7 @@ export default function AnalysisOptions({
               AI 심층 분석
             </label>
             <p className="text-xs text-gray-500 mt-0.5">
-              GPT-4o를 사용한 고급 분석
+              GPT 를 사용한 고급 분석
             </p>
           </div>
           <button
