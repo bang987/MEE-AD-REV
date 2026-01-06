@@ -72,10 +72,15 @@ export function useBatchPolling(
     mountedRef.current = true;
 
     if (!batchId || !enabled) {
-      stop();
+      // stop() 대신 직접 타임아웃 정리 (setState 호출 방지)
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
       return;
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 폴링 시작 시 상태 초기화 필요
     setIsPolling(true);
     currentIntervalRef.current = initialInterval;
 
@@ -149,7 +154,6 @@ export function useBatchPolling(
     retryCount,
     onComplete,
     onError,
-    stop,
   ]);
 
   return {

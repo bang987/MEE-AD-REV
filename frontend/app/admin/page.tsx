@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Database, BookOpen } from 'lucide-react';
-import Card from '@/components/ui/Card';
 import Message from '@/components/ui/Message';
 import DocumentUpload from '@/components/admin/DocumentUpload';
 import DocumentList from '@/components/admin/DocumentList';

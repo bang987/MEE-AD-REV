@@ -24,7 +24,7 @@ export default function HomePage() {
 
   // Analysis state
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [batchId, setBatchId] = useState<string | null>(null);
+  const [, setBatchId] = useState<string | null>(null);
   const [fileStatuses, setFileStatuses] = useState<FileStatus[]>([]);
 
   // Results

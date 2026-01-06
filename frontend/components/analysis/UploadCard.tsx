@@ -1,9 +1,8 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { Upload, X, FileImage } from 'lucide-react';
+import { Upload, FileImage } from 'lucide-react';
 import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
 import { formatFileSize } from '@/lib/api';
 
 interface UploadCardProps {

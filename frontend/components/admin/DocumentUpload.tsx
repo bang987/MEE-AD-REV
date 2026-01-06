@@ -11,18 +11,19 @@ interface DocumentUploadProps {
   disabled?: boolean;
 }
 
+// 컴포넌트 외부로 이동하여 useCallback 의존성 경고 해결
+const ACCEPTED_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
+  'text/markdown',
+];
+
 export default function DocumentUpload({ onUpload, disabled }: DocumentUploadProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-
-  const acceptedTypes = [
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'text/plain',
-    'text/markdown',
-  ];
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -31,7 +32,7 @@ export default function DocumentUpload({ onUpload, disabled }: DocumentUploadPro
       if (disabled || isUploading) return;
 
       const files = Array.from(e.dataTransfer.files).filter((file) =>
-        acceptedTypes.includes(file.type) ||
+        ACCEPTED_TYPES.includes(file.type) ||
         file.name.endsWith('.md') ||
         file.name.endsWith('.txt')
       );

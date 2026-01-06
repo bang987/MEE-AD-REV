@@ -1,6 +1,6 @@
 'use client';
 
-import { X, AlertTriangle, FileText, Scale, Lightbulb } from 'lucide-react';
+import { X, AlertTriangle, FileText, Lightbulb } from 'lucide-react';
 import { BatchFileResult } from '@/types';
 import { RiskBadge, getJudgment } from '@/components/ui/Badge';
 
@@ -107,7 +107,7 @@ export default function DetailModal({ result, onClose }: DetailModalProps) {
                                 </span>
                               </div>
                               <p className="text-sm text-orange-800">
-                                키워드: <span className="font-medium">"{violation.keyword}"</span>
+                                키워드: <span className="font-medium">&quot;{violation.keyword}&quot;</span>
                                 {violation.count > 1 && ` (${violation.count}회 발견)`}
                               </p>
                               {violation.description && (

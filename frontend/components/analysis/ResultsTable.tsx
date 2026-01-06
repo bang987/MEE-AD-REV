@@ -21,6 +21,24 @@ const riskOrder: Record<RiskLevel, number> = {
   SAFE: 1,
 };
 
+// SortIcon을 컴포넌트 외부로 분리
+function SortIcon({
+  field,
+  sortField,
+  sortDirection
+}: {
+  field: SortField;
+  sortField: SortField;
+  sortDirection: SortDirection;
+}) {
+  if (sortField !== field) return null;
+  return sortDirection === 'asc' ? (
+    <ChevronUp className="h-4 w-4" />
+  ) : (
+    <ChevronDown className="h-4 w-4" />
+  );
+}
+
 export default function ResultsTable({ results, onViewDetail }: ResultsTableProps) {
   const [sortField, setSortField] = useState<SortField>('filename');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -69,15 +87,6 @@ export default function ResultsTable({ results, onViewDetail }: ResultsTableProp
       }
     });
   }, [results, filterRisk, sortField, sortDirection]);
-
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return null;
-    return sortDirection === 'asc' ? (
-      <ChevronUp className="h-4 w-4" />
-    ) : (
-      <ChevronDown className="h-4 w-4" />
-    );
-  };
 
   const riskCounts = useMemo(() => {
     const counts: Record<RiskLevel | 'ERROR', number> = {
@@ -171,7 +180,7 @@ export default function ResultsTable({ results, onViewDetail }: ResultsTableProp
               >
                 <div className="flex items-center gap-1">
                   파일명
-                  <SortIcon field="filename" />
+                  <SortIcon field="filename" sortField={sortField} sortDirection={sortDirection} />
                 </div>
               </th>
               <th
@@ -180,7 +189,7 @@ export default function ResultsTable({ results, onViewDetail }: ResultsTableProp
               >
                 <div className="flex items-center gap-1">
                   위험도
-                  <SortIcon field="risk_level" />
+                  <SortIcon field="risk_level" sortField={sortField} sortDirection={sortDirection} />
                 </div>
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -192,7 +201,7 @@ export default function ResultsTable({ results, onViewDetail }: ResultsTableProp
               >
                 <div className="flex items-center gap-1">
                   위반 항목
-                  <SortIcon field="violations" />
+                  <SortIcon field="violations" sortField={sortField} sortDirection={sortDirection} />
                 </div>
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">

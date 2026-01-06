@@ -1,6 +1,5 @@
 'use client';
 
-import { Settings2 } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import { OCREngine } from '@/types';
 
