@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Play, RotateCcw, FolderOpen } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Message from '@/components/ui/Message';
+import { getCategory } from '@/components/ui/Badge';
 import UploadCard from '@/components/analysis/UploadCard';
 import AnalysisOptions from '@/components/analysis/AnalysisOptions';
 import ProgressBar from '@/components/analysis/ProgressBar';
@@ -149,22 +150,6 @@ export default function HomePage() {
     setProcessedCount(0);
     setResults([]);
     setMessage(null);
-  };
-
-  // Helper function to determine category based on risk level
-  const getCategory = (riskLevel: RiskLevel): JudgmentType => {
-    switch (riskLevel) {
-      case 'SAFE':
-      case 'LOW':
-        return 'approved';
-      case 'MEDIUM':
-        return 'review';
-      case 'HIGH':
-      case 'CRITICAL':
-        return 'rejected';
-      default:
-        return 'review';
-    }
   };
 
   // Handle file classification

@@ -6,7 +6,7 @@ import Card from '@/components/ui/Card';
 import Message from '@/components/ui/Message';
 import DocumentUpload from '@/components/admin/DocumentUpload';
 import DocumentList from '@/components/admin/DocumentList';
-import { getDocuments, uploadDocuments, deleteDocument } from '@/lib/api';
+import { getDocuments, uploadDocuments, deleteDocument, formatFileSize } from '@/lib/api';
 import { Document } from '@/types';
 
 export default function AdminPage() {
@@ -66,11 +66,6 @@ export default function AdminPage() {
   };
 
   const totalSize = documents.reduce((sum, doc) => sum + doc.size, 0);
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -116,7 +111,7 @@ export default function AdminPage() {
             </div>
             <div>
               <p className="text-xs text-gray-500">총 용량</p>
-              <p className="text-xl font-semibold text-gray-900">{formatSize(totalSize)}</p>
+              <p className="text-xl font-semibold text-gray-900">{formatFileSize(totalSize)}</p>
             </div>
           </div>
         </div>

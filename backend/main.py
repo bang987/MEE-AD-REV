@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import os
-import requests
+import httpx
 import json
 from dotenv import load_dotenv
 from pathlib import Path
@@ -36,13 +36,25 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS 설정
+# CORS 설정 - 허용된 도메인만
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+    os.getenv("FRONTEND_URL", "http://192.168.0.2:5173"),
+]
+# 환경변수로 추가 도메인 허용
+additional_origins = os.getenv("ADDITIONAL_CORS_ORIGINS")
+if additional_origins:
+    ALLOWED_ORIGINS.extend(additional_origins.split(","))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 프로덕션에서는 특정 도메인으로 제한
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "X-OCR-SECRET"],
 )
 
 # Naver OCR API 설정
@@ -149,7 +161,7 @@ async def process_ocr(file: UploadFile = File(...)):
 
 async def perform_naver_ocr(image_path: Path) -> dict:
     """
-    Naver Clova OCR API를 사용하여 이미지에서 텍스트 추출
+    Naver Clova OCR API를 사용하여 이미지에서 텍스트 추출 (비동기)
 
     Args:
         image_path: 이미지 파일 경로
@@ -157,6 +169,16 @@ async def perform_naver_ocr(image_path: Path) -> dict:
     Returns:
         dict: OCR 결과
     """
+    # API URL 검증
+    if not NAVER_OCR_API_URL:
+        return {
+            "success": False,
+            "text": None,
+            "confidence": None,
+            "fields_count": None,
+            "error": "NAVER_OCR_API_URL 환경변수가 설정되지 않았습니다."
+        }
+
     try:
         # 이미지 파일 읽기
         with open(image_path, "rb") as f:
@@ -181,22 +203,22 @@ async def perform_naver_ocr(image_path: Path) -> dict:
 
         # 헤더 설정
         headers = {
-            "X-OCR-SECRET": NAVER_OCR_SECRET_KEY
+            "X-OCR-SECRET": NAVER_OCR_SECRET_KEY or ""
         }
 
-        # 파일 데이터 설정
-        files = {
-            "message": (None, json.dumps(request_json), "application/json"),
-            "file": (image_path.name, image_data, f"image/{image_format}")
-        }
+        # 비동기 HTTP 요청 (httpx 사용)
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            # multipart/form-data 구성
+            files = {
+                "message": ("message", json.dumps(request_json), "application/json"),
+                "file": (image_path.name, image_data, f"image/{image_format}")
+            }
 
-        # API 요청
-        response = requests.post(
-            NAVER_OCR_API_URL,
-            headers=headers,
-            files=files,
-            timeout=30
-        )
+            response = await client.post(
+                NAVER_OCR_API_URL,
+                headers=headers,
+                files=files
+            )
 
         if response.status_code == 200:
             result = response.json()
@@ -237,7 +259,7 @@ async def perform_naver_ocr(image_path: Path) -> dict:
                 "error": f"OCR API 오류: HTTP {response.status_code} - {response.text[:200]}"
             }
 
-    except requests.exceptions.Timeout:
+    except httpx.TimeoutException:
         return {
             "success": False,
             "text": None,
@@ -364,6 +386,75 @@ class ClassifyRequest(BaseModel):
 
 # 배치 분석 상태 저장소 (메모리)
 batch_status_store: Dict[str, BatchAnalysisStatus] = {}
+
+# 배치 상태 정리 설정
+BATCH_CLEANUP_MAX_AGE_HOURS = 24  # 완료된 배치 보관 시간
+BATCH_CLEANUP_INTERVAL_MINUTES = 60  # 정리 실행 간격
+
+
+def cleanup_old_batches():
+    """
+    완료된 오래된 배치 상태를 메모리에서 제거
+    메모리 누수 방지를 위해 주기적으로 호출
+    """
+    now = datetime.now()
+    max_age = timedelta(hours=BATCH_CLEANUP_MAX_AGE_HOURS)
+
+    to_delete = []
+    for batch_id, status in batch_status_store.items():
+        # 완료되거나 실패한 배치만 정리
+        if status.status in ["completed", "failed"]:
+            try:
+                if status.start_time:
+                    start_time = datetime.fromisoformat(status.start_time)
+                    if (now - start_time) > max_age:
+                        to_delete.append(batch_id)
+                else:
+                    # start_time이 없으면 삭제
+                    to_delete.append(batch_id)
+            except (ValueError, TypeError):
+                # 잘못된 시간 형식이면 삭제
+                to_delete.append(batch_id)
+
+    for batch_id in to_delete:
+        del batch_status_store[batch_id]
+
+    if to_delete:
+        print(f"[Cleanup] {len(to_delete)}개의 오래된 배치 상태 삭제됨")
+
+    return len(to_delete)
+
+
+# 백그라운드 클린업 태스크
+_cleanup_task: Optional[asyncio.Task] = None
+
+
+async def periodic_cleanup():
+    """주기적으로 오래된 배치 상태 정리"""
+    while True:
+        await asyncio.sleep(BATCH_CLEANUP_INTERVAL_MINUTES * 60)
+        cleanup_old_batches()
+
+
+@app.on_event("startup")
+async def startup_event():
+    """앱 시작 시 클린업 태스크 시작"""
+    global _cleanup_task
+    _cleanup_task = asyncio.create_task(periodic_cleanup())
+    print("[Startup] 배치 상태 클린업 스케줄러 시작됨")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """앱 종료 시 클린업 태스크 중지"""
+    global _cleanup_task
+    if _cleanup_task:
+        _cleanup_task.cancel()
+        try:
+            await _cleanup_task
+        except asyncio.CancelledError:
+            pass
+    print("[Shutdown] 배치 상태 클린업 스케줄러 중지됨")
 
 
 async def process_single_file_async(
