@@ -15,6 +15,7 @@ load_dotenv()
 NAVER_OCR_API_URL = os.getenv("NAVER_OCR_API_URL")
 NAVER_OCR_SECRET_KEY = os.getenv("NAVER_OCR_SECRET_KEY")
 
+
 def test_ocr_single_image(image_path: str):
     """단일 이미지 OCR 테스트"""
 
@@ -22,9 +23,9 @@ def test_ocr_single_image(image_path: str):
         print(f"❌ 파일을 찾을 수 없습니다: {image_path}")
         return None
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"📄 파일: {os.path.basename(image_path)}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     try:
         # 시작 시간 측정
@@ -40,39 +41,29 @@ def test_ocr_single_image(image_path: str):
 
         # 요청 본문 구성
         file_ext = Path(image_path).suffix.lower()
-        image_format = "jpg" if file_ext in ['.jpg', '.jpeg'] else "png"
+        image_format = "jpg" if file_ext in [".jpg", ".jpeg"] else "png"
 
         request_json = {
-            "images": [
-                {
-                    "format": image_format,
-                    "name": "test_image"
-                }
-            ],
+            "images": [{"format": image_format, "name": "test_image"}],
             "requestId": f"test-{int(time.time())}",
             "version": "V2",
-            "timestamp": 0
+            "timestamp": 0,
         }
 
         # 헤더 설정
-        headers = {
-            "X-OCR-SECRET": NAVER_OCR_SECRET_KEY
-        }
+        headers = {"X-OCR-SECRET": NAVER_OCR_SECRET_KEY}
 
         # 파일 데이터 설정
         files = {
             "message": (None, json.dumps(request_json), "application/json"),
-            "file": (os.path.basename(image_path), image_data, f"image/{image_format}")
+            "file": (os.path.basename(image_path), image_data, f"image/{image_format}"),
         }
 
         print("OCR 요청 전송 중...")
 
         # API 요청
         response = requests.post(
-            NAVER_OCR_API_URL,
-            headers=headers,
-            files=files,
-            timeout=30
+            NAVER_OCR_API_URL, headers=headers, files=files, timeout=30
         )
 
         # 종료 시간 측정
@@ -98,7 +89,9 @@ def test_ocr_single_image(image_path: str):
                     total_confidence += confidence
 
                 # 평균 신뢰도 계산
-                avg_confidence = (total_confidence / fields_count * 100) if fields_count > 0 else 0.0
+                avg_confidence = (
+                    (total_confidence / fields_count * 100) if fields_count > 0 else 0.0
+                )
             else:
                 avg_confidence = 0.0
 
@@ -129,7 +122,7 @@ def test_ocr_single_image(image_path: str):
                 "text": extracted_text.strip(),
                 "confidence": avg_confidence,
                 "fields_count": fields_count,
-                "processing_time": elapsed_time
+                "processing_time": elapsed_time,
             }
         else:
             print(f"\n❌ OCR 실패: HTTP {response.status_code}")
@@ -137,7 +130,7 @@ def test_ocr_single_image(image_path: str):
             return {
                 "success": False,
                 "filename": os.path.basename(image_path),
-                "error": f"HTTP {response.status_code}"
+                "error": f"HTTP {response.status_code}",
             }
 
     except Exception as e:
@@ -145,17 +138,17 @@ def test_ocr_single_image(image_path: str):
         return {
             "success": False,
             "filename": os.path.basename(image_path),
-            "error": str(e)
+            "error": str(e),
         }
 
 
 def main():
     """Day 2 OCR 테스트 메인 함수"""
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Day 2 - OCR 연동 테스트")
     print("목표: 샘플 이미지 3개 테스트")
-    print("="*60)
+    print("=" * 60)
 
     # API 설정 확인
     if not NAVER_OCR_API_URL or not NAVER_OCR_SECRET_KEY:
@@ -169,9 +162,9 @@ def main():
     # 테스트할 샘플 이미지 3개 선택
     samples_dir = Path(__file__).parent.parent / "samples"
     test_images = [
-        samples_dir / "보톡스.jpg",      # 작은 파일 (18KB)
-        samples_dir / "라식.jpg",        # 중간 파일 (58KB)
-        samples_dir / "가슴성형.jpg"     # 큰 파일 (151KB)
+        samples_dir / "보톡스.jpg",  # 작은 파일 (18KB)
+        samples_dir / "라식.jpg",  # 중간 파일 (58KB)
+        samples_dir / "가슴성형.jpg",  # 큰 파일 (151KB)
     ]
 
     results = []
@@ -183,9 +176,9 @@ def main():
             results.append(result)
 
     # 종합 결과
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("📊 종합 결과")
-    print("="*60)
+    print("=" * 60)
 
     successful = [r for r in results if r.get("success", False)]
 
@@ -215,9 +208,9 @@ def main():
     else:
         print("\n❌ 모든 테스트 실패")
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Day 2 테스트 완료")
-    print("="*60)
+    print("=" * 60)
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 # .env 파일 로드
 load_dotenv()
 
+
 def test_naver_ocr_connection():
     """Naver Clova OCR API 연결 테스트"""
 
@@ -37,12 +38,6 @@ def test_naver_ocr_connection():
         # 실제로는 샘플 이미지가 필요하지만, API 연결만 테스트
         print("\n⚠️  주의: 실제 이미지 파일이 필요합니다.")
         print("현재는 API 엔드포인트 연결만 확인합니다.")
-
-        # 헤더 설정
-        headers = {
-            "X-OCR-SECRET": secret_key,
-            "Content-Type": "application/json"
-        }
 
         # 테스트 요청 본문 (실제 이미지 없이 구조만 확인)
         # 참고: 실제 테스트를 위해서는 이미지가 필요함
@@ -99,24 +94,24 @@ def test_naver_ocr_with_image(image_path: str):
         request_json = {
             "images": [
                 {
-                    "format": "jpg" if image_path.lower().endswith(('.jpg', '.jpeg')) else "png",
-                    "name": "test_image"
+                    "format": "jpg"
+                    if image_path.lower().endswith((".jpg", ".jpeg"))
+                    else "png",
+                    "name": "test_image",
                 }
             ],
             "requestId": "test-request-001",
             "version": "V2",
-            "timestamp": 0
+            "timestamp": 0,
         }
 
         # 헤더 설정
-        headers = {
-            "X-OCR-SECRET": secret_key
-        }
+        headers = {"X-OCR-SECRET": secret_key}
 
         # 파일 데이터 설정
         files = {
             "message": (None, json.dumps(request_json), "application/json"),
-            "file": (os.path.basename(image_path), image_data, "image/jpeg")
+            "file": (os.path.basename(image_path), image_data, "image/jpeg"),
         }
 
         print(f"이미지 파일: {image_path}")

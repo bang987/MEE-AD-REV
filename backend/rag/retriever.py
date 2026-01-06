@@ -13,11 +13,7 @@ class MedicalLawRetriever:
     def __init__(self):
         self.vector_store = get_vector_store()
 
-    def retrieve_relevant_laws(
-        self,
-        ad_text: str,
-        top_k: int = 5
-    ) -> List[Dict]:
+    def retrieve_relevant_laws(self, ad_text: str, top_k: int = 5) -> List[Dict]:
         """
         광고 텍스트와 관련된 법규 조항 검색
 
@@ -32,20 +28,18 @@ class MedicalLawRetriever:
 
         relevant_laws = []
         for doc, score in results:
-            relevant_laws.append({
-                "content": doc.page_content,
-                "title": doc.metadata.get("title", ""),
-                "source": doc.metadata.get("source", ""),
-                "relevance_score": 1 - score  # 거리를 유사도로 변환
-            })
+            relevant_laws.append(
+                {
+                    "content": doc.page_content,
+                    "title": doc.metadata.get("title", ""),
+                    "source": doc.metadata.get("source", ""),
+                    "relevance_score": 1 - score,  # 거리를 유사도로 변환
+                }
+            )
 
         return relevant_laws
 
-    def build_rag_context(
-        self,
-        ad_text: str,
-        top_k: int = 5
-    ) -> str:
+    def build_rag_context(self, ad_text: str, top_k: int = 5) -> str:
         """
         RAG 컨텍스트 생성 (GPT 프롬프트에 주입할 법규 정보)
 
@@ -65,7 +59,7 @@ class MedicalLawRetriever:
 
         for i, law in enumerate(laws, 1):
             context_parts.append(f"\n### [{i}] {law['title']}")
-            context_parts.append(law['content'])
+            context_parts.append(law["content"])
 
         return "\n".join(context_parts)
 

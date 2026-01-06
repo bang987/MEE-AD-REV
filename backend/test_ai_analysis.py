@@ -1,6 +1,7 @@
 """
 AI 광고 분석 테스트
 """
+
 import requests
 
 BASE_URL = "http://localhost:8000"
@@ -28,7 +29,7 @@ def test_ai_text_analysis():
 
     data = {
         "text": test_text,
-        "use_ai": True  # AI 분석 활성화
+        "use_ai": True,  # AI 분석 활성화
     }
 
     print("\n분석 중... (AI 분석은 10-30초 소요될 수 있습니다)")
@@ -38,15 +39,15 @@ def test_ai_text_analysis():
             f"{BASE_URL}/api/analyze",
             json=data,
             headers={"Content-Type": "application/json"},
-            timeout=60
+            timeout=60,
         )
 
         if response.status_code == 200:
             result = response.json()
 
-            print(f"\n{'='*80}")
+            print(f"\n{'=' * 80}")
             print("✅ AI 분석 성공!")
-            print(f"{'='*80}")
+            print(f"{'=' * 80}")
 
             # 키워드 기반 분석 결과
             print("\n📊 키워드 기반 분석 결과:")
@@ -57,15 +58,15 @@ def test_ai_text_analysis():
 
             # 발견된 위반 사항
             print("\n⚠️  발견된 위반 키워드:")
-            for v in result['violations']:
+            for v in result["violations"]:
                 print(f"  • [{v['severity']}] {v['keyword']} - {v['category']}")
 
             # AI 분석 결과
-            if result.get('ai_analysis'):
-                print(f"\n{'='*80}")
+            if result.get("ai_analysis"):
+                print(f"\n{'=' * 80}")
                 print("🤖 GPT-4 AI 심층 분석 결과:")
-                print(f"{'='*80}")
-                print(result['ai_analysis'])
+                print(f"{'=' * 80}")
+                print(result["ai_analysis"])
             else:
                 print("\n⚠️  AI 분석 결과를 받지 못했습니다.")
 
@@ -81,6 +82,7 @@ def test_ai_text_analysis():
     except Exception as e:
         print(f"❌ 오류: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -98,26 +100,24 @@ def test_ai_ocr_analysis():
 
     try:
         with open(image_path, "rb") as f:
-            files = {
-                "file": (image_path.split("/")[-1], f, "image/jpeg")
-            }
+            files = {"file": (image_path.split("/")[-1], f, "image/jpeg")}
 
             response = requests.post(
                 f"{BASE_URL}/api/ocr-analyze",
                 files=files,
                 data={"use_ai": "true"},  # AI 분석 활성화
-                timeout=120
+                timeout=120,
             )
 
         if response.status_code == 200:
             result = response.json()
 
-            print(f"\n{'='*80}")
+            print(f"\n{'=' * 80}")
             print("✅ OCR + AI 분석 성공!")
-            print(f"{'='*80}")
+            print(f"{'=' * 80}")
 
             # OCR 결과
-            ocr = result['ocr_result']
+            ocr = result["ocr_result"]
             print("\n📄 OCR 결과:")
             print(f"  파일명: {result['filename']}")
             print(f"  신뢰도: {ocr['confidence']}")
@@ -127,24 +127,24 @@ def test_ai_ocr_analysis():
             print(f"  {ocr['text']}")
 
             # 분석 결과
-            analysis = result['analysis_result']
+            analysis = result["analysis_result"]
             print("\n📊 광고 위반 분석:")
             print(f"  위험도: {analysis['risk_level']}")
             print(f"  총점: {analysis['total_score']}")
             print(f"  위반 건수: {analysis['violation_count']}")
             print(f"  요약: {analysis['summary']}")
 
-            if analysis['violations']:
+            if analysis["violations"]:
                 print("\n  위반 키워드:")
-                for v in analysis['violations']:
+                for v in analysis["violations"]:
                     print(f"    • [{v['severity']}] {v['keyword']} - {v['category']}")
 
             # AI 분석 결과
-            if analysis.get('ai_analysis'):
-                print(f"\n{'='*80}")
+            if analysis.get("ai_analysis"):
+                print(f"\n{'=' * 80}")
                 print("🤖 GPT-4 AI 심층 분석 결과:")
-                print(f"{'='*80}")
-                print(analysis['ai_analysis'])
+                print(f"{'=' * 80}")
+                print(analysis["ai_analysis"])
             else:
                 print("\n⚠️  AI 분석 결과를 받지 못했습니다.")
 
@@ -163,6 +163,7 @@ def test_ai_ocr_analysis():
     except Exception as e:
         print(f"❌ 오류: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 

@@ -1,6 +1,7 @@
 """
 FastAPI OCR 엔드포인트 테스트 스크립트
 """
+
 import requests
 from pathlib import Path
 
@@ -38,14 +39,10 @@ def test_ocr_single_image(image_path: str):
     try:
         # 이미지 파일 열기
         with open(image_path, "rb") as f:
-            files = {
-                "file": (Path(image_path).name, f, "image/jpeg")
-            }
+            files = {"file": (Path(image_path).name, f, "image/jpeg")}
 
             response = requests.post(
-                "http://localhost:8000/api/ocr",
-                files=files,
-                timeout=60
+                "http://localhost:8000/api/ocr", files=files, timeout=60
             )
 
         if response.status_code == 200:
@@ -58,7 +55,11 @@ def test_ocr_single_image(image_path: str):
             print(f"필드 수: {result['fields_count']}")
             print("\n추출된 텍스트 (처음 200자):")
             print("-" * 80)
-            text_preview = result['text'][:200] + "..." if len(result['text']) > 200 else result['text']
+            text_preview = (
+                result["text"][:200] + "..."
+                if len(result["text"]) > 200
+                else result["text"]
+            )
             print(text_preview)
             print("-" * 80)
 
@@ -83,14 +84,10 @@ def test_ocr_batch(image_paths: list):
         files = []
         for image_path in image_paths:
             with open(image_path, "rb") as f:
-                files.append(
-                    ("files", (Path(image_path).name, f.read(), "image/jpeg"))
-                )
+                files.append(("files", (Path(image_path).name, f.read(), "image/jpeg")))
 
         response = requests.post(
-            "http://localhost:8000/api/ocr/batch",
-            files=files,
-            timeout=120
+            "http://localhost:8000/api/ocr/batch", files=files, timeout=120
         )
 
         if response.status_code == 200:
@@ -100,11 +97,15 @@ def test_ocr_batch(image_paths: list):
 
             for idx, result in enumerate(results, 1):
                 print(f"\n[{idx}] {result['filename']}")
-                if result['success']:
+                if result["success"]:
                     print(f"  - 신뢰도: {result['confidence']}%")
                     print(f"  - 필드 수: {result['fields_count']}")
                     print(f"  - 처리 시간: {result['processing_time']:.2f}초")
-                    text_preview = result['text'][:100] + "..." if len(result['text']) > 100 else result['text']
+                    text_preview = (
+                        result["text"][:100] + "..."
+                        if len(result["text"]) > 100
+                        else result["text"]
+                    )
                     print(f"  - 텍스트: {text_preview}")
                 else:
                     print(f"  - ❌ 실패: {result['error']}")

@@ -1,6 +1,7 @@
 """
 의료 광고 위반 분석 모듈
 """
+
 from typing import Dict, List, Optional
 import os
 import re
@@ -16,6 +17,7 @@ load_dotenv()
 # ============================================
 # 위험점수 → 위험도 → 판정 자동 계산 함수
 # ============================================
+
 
 def calculate_risk_level(risk_score: int) -> str:
     """
@@ -63,9 +65,10 @@ def calculate_judgment(risk_level: str) -> str:
         "LOW": "주의",
         "MEDIUM": "수정제안",
         "HIGH": "수정권고",
-        "CRITICAL": "게재불가"
+        "CRITICAL": "게재불가",
     }
     return mapping.get(risk_level, "주의")
+
 
 # RAG 모듈 임포트 (lazy loading)
 _rag_initialized = False
@@ -80,6 +83,7 @@ def _get_rag_context(text: str) -> str:
         if not _rag_initialized:
             from rag.retriever import get_retriever
             from rag.vector_store import initialize_vector_store
+
             initialize_vector_store()
             _rag_retriever = get_retriever()
             _rag_initialized = True
@@ -91,12 +95,14 @@ def _get_rag_context(text: str) -> str:
 
     return ""
 
+
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
 class ViolationResult:
     """위반 분석 결과"""
+
     def __init__(self):
         # 기존 필드
         self.violations: List[Dict] = []  # 키워드 위반
@@ -130,7 +136,7 @@ class ViolationResult:
             "ai_analysis": self.ai_analysis,
             "ai_violations": self.ai_violations,
             "keyword_risk_score": self.keyword_risk_score,
-            "violation_count": len(self.violations) + len(self.ai_violations)
+            "violation_count": len(self.violations) + len(self.ai_violations),
         }
 
 
@@ -175,7 +181,7 @@ def analyze_keywords(text: str) -> ViolationResult:
                 "total_score": total_keyword_score,
                 "law": law,
                 "description": description,
-                "context": _extract_context(text, keyword)
+                "context": _extract_context(text, keyword),
             }
             result.violations.append(violation)
             result.total_score += total_keyword_score
@@ -237,7 +243,9 @@ def _generate_summary(result: ViolationResult) -> str:
         cat = v["category"]
         categories[cat] = categories.get(cat, 0) + 1
 
-    category_summary = ", ".join([f"{cat} {count}건" for cat, count in categories.items()])
+    category_summary = ", ".join(
+        [f"{cat} {count}건" for cat, count in categories.items()]
+    )
 
     summary = f"총 {violation_count}개의 위반 키워드 발견 ({category_summary}). "
     summary += f"위험도: {result.risk_level}, 총점: {result.total_score}점"
@@ -245,7 +253,9 @@ def _generate_summary(result: ViolationResult) -> str:
     return summary
 
 
-def analyze_with_ai(text: str, keyword_result: Optional[ViolationResult] = None, use_rag: bool = True) -> str:
+def analyze_with_ai(
+    text: str, keyword_result: Optional[ViolationResult] = None, use_rag: bool = True
+) -> str:
     """
     OpenAI를 사용한 심층 광고 분석 (RAG 지원)
 
@@ -261,10 +271,12 @@ def analyze_with_ai(text: str, keyword_result: Optional[ViolationResult] = None,
     # 키워드 분석 결과를 컨텍스트로 포함
     keyword_context = ""
     if keyword_result and keyword_result.violations:
-        violations_text = "\n".join([
-            f"- {v['keyword']} ({v['category']}, {v['severity']})"
-            for v in keyword_result.violations[:10]  # 상위 10개만
-        ])
+        violations_text = "\n".join(
+            [
+                f"- {v['keyword']} ({v['category']}, {v['severity']})"
+                for v in keyword_result.violations[:10]  # 상위 10개만
+            ]
+        )
         keyword_context = f"\n\n## 키워드 분석 결과\n다음 위반 키워드가 발견되었습니다:\n{violations_text}"
 
     # RAG로 관련 법규 검색
@@ -305,8 +317,7 @@ def analyze_with_ai(text: str, keyword_result: Optional[ViolationResult] = None,
             model="gpt-5.2",
             instructions="당신은 대한민국 의료법 전문가입니다. 제공된 법규 조항을 정확히 인용하여 분석하세요.",
             input=[{"role": "user", "content": prompt}],
-            max_output_tokens=1500  # reasoning 토큰 + 실제 응답 토큰
-
+            max_output_tokens=1500,  # reasoning 토큰 + 실제 응답 토큰
         )
 
         return response.output_text or ""
@@ -315,7 +326,9 @@ def analyze_with_ai(text: str, keyword_result: Optional[ViolationResult] = None,
         return f"AI 분석 중 오류 발생: {str(e)}"
 
 
-def analyze_complete(text: str, use_ai: bool = True, use_rag: bool = True) -> ViolationResult:
+def analyze_complete(
+    text: str, use_ai: bool = True, use_rag: bool = True
+) -> ViolationResult:
     """
     완전한 광고 분석 (키워드 + AI)
 
@@ -351,7 +364,7 @@ async def analyze_with_ai_async(
     text: str,
     keyword_result: Optional[ViolationResult] = None,
     use_rag: bool = True,
-    rag_context: str = ""
+    rag_context: str = "",
 ) -> str:
     """
     비동기 OpenAI 분석 (AsyncOpenAI 사용)
@@ -368,10 +381,12 @@ async def analyze_with_ai_async(
     # 키워드 분석 결과를 컨텍스트로 포함
     keyword_context = ""
     if keyword_result and keyword_result.violations:
-        violations_text = "\n".join([
-            f"- {v['keyword']} ({v['category']}, {v['severity']})"
-            for v in keyword_result.violations[:10]
-        ])
+        violations_text = "\n".join(
+            [
+                f"- {v['keyword']} ({v['category']}, {v['severity']})"
+                for v in keyword_result.violations[:10]
+            ]
+        )
         keyword_context = f"\n\n## 키워드 분석 결과\n다음 위반 키워드가 발견되었습니다:\n{violations_text}"
 
     # RAG 컨텍스트 (미리 제공되지 않은 경우 검색)
@@ -412,7 +427,7 @@ async def analyze_with_ai_async(
             model="gpt-5.2",
             instructions="당신은 대한민국 의료법 전문가입니다. 제공된 법규 조항을 정확히 인용하여 분석하세요.",
             input=[{"role": "user", "content": prompt}],
-            max_output_tokens=1500
+            max_output_tokens=1500,
         )
 
         return response.output_text or ""
@@ -425,6 +440,7 @@ async def analyze_with_ai_async(
 # 2차 LLM 판정 추출 (위험점수 기반)
 # ============================================
 
+
 def parse_judgment_json(response_text: str) -> Optional[Dict]:
     """
     LLM 응답에서 JSON 블록 추출 및 파싱
@@ -436,7 +452,7 @@ def parse_judgment_json(response_text: str) -> Optional[Dict]:
         파싱된 딕셔너리 또는 None
     """
     # ```json ... ``` 블록 추출
-    pattern = r'```json\s*(.*?)\s*```'
+    pattern = r"```json\s*(.*?)\s*```"
     match = re.search(pattern, response_text, re.DOTALL)
 
     if not match:
@@ -462,9 +478,7 @@ def parse_judgment_json(response_text: str) -> Optional[Dict]:
 
 
 async def extract_final_judgment(
-    ai_analysis_text: str,
-    keyword_violations: List[Dict],
-    keyword_risk_score: int
+    ai_analysis_text: str, keyword_violations: List[Dict], keyword_risk_score: int
 ) -> Optional[Dict]:
     """
     1차 AI 분석 결과에서 최종 판정 추출 (2차 LLM 호출)
@@ -527,7 +541,7 @@ async def extract_final_judgment(
             model="gpt-4.1-mini",  # 간단한 추출 작업이므로 빠른 모델 사용
             instructions="JSON 형식으로만 응답하세요. 다른 텍스트 없이 JSON만 출력합니다.",
             input=[{"role": "user", "content": prompt}],
-            max_output_tokens=500
+            max_output_tokens=500,
         )
 
         response_text = response.output_text or ""
@@ -538,7 +552,9 @@ async def extract_final_judgment(
         return None
 
 
-async def analyze_complete_async(text: str, use_ai: bool = True, use_rag: bool = True) -> ViolationResult:
+async def analyze_complete_async(
+    text: str, use_ai: bool = True, use_rag: bool = True
+) -> ViolationResult:
     """
     비동기 완전한 광고 분석 (3단계: 키워드 → 1차 AI → 2차 LLM 판정)
 
@@ -569,7 +585,9 @@ async def analyze_complete_async(text: str, use_ai: bool = True, use_rag: bool =
                     text, result, use_rag=True, rag_context=rag_context
                 )
             else:
-                ai_analysis_text = await analyze_with_ai_async(text, result, use_rag=False)
+                ai_analysis_text = await analyze_with_ai_async(
+                    text, result, use_rag=False
+                )
 
             result.ai_analysis = ai_analysis_text  # 상세 표시용 유지
 
@@ -577,15 +595,15 @@ async def analyze_complete_async(text: str, use_ai: bool = True, use_rag: bool =
             # 3단계: 2차 LLM 위험점수 추출 (JSON)
             # ============================================
             final_judgment = await extract_final_judgment(
-                ai_analysis_text,
-                result.violations,
-                result.keyword_risk_score
+                ai_analysis_text, result.violations, result.keyword_risk_score
             )
 
             # 최종 결과 통합
             if final_judgment:
                 # 위험점수 설정 (2차 LLM 결과)
-                result.risk_score = int(final_judgment.get("risk_score", result.keyword_risk_score))
+                result.risk_score = int(
+                    final_judgment.get("risk_score", result.keyword_risk_score)
+                )
 
                 # 위험도 자동 계산 (위험점수 기반)
                 result.risk_level = calculate_risk_level(result.risk_score)
@@ -625,4 +643,6 @@ if __name__ == "__main__":
     print(f"요약: {result.summary}")
     print(f"\n발견된 위반 ({len(result.violations)}건):")
     for v in result.violations:
-        print(f"  - {v['keyword']}: {v['category']} ({v['severity']}) - {v['description']}")
+        print(
+            f"  - {v['keyword']}: {v['category']} ({v['severity']}) - {v['description']}"
+        )

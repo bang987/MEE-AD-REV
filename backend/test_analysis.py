@@ -1,6 +1,7 @@
 """
 광고 분석 API 테스트 스크립트
 """
+
 import requests
 
 BASE_URL = "http://localhost:8000"
@@ -20,16 +21,13 @@ def test_text_analysis():
     완치 보장! 영구적 효과!
     """
 
-    data = {
-        "text": test_text,
-        "use_ai": False
-    }
+    data = {"text": test_text, "use_ai": False}
 
     try:
         response = requests.post(
             f"{BASE_URL}/api/analyze",
             json=data,
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
 
         if response.status_code == 200:
@@ -43,7 +41,7 @@ def test_text_analysis():
 
             print("\n발견된 위반 사항:")
             print("-" * 80)
-            for v in result['violations']:
+            for v in result["violations"]:
                 print(f"  [{v['severity']}] {v['keyword']}")
                 print(f"    카테고리: {v['category']}")
                 print(f"    법조항: {v['law']}")
@@ -72,14 +70,10 @@ def test_ocr_analysis():
 
     try:
         with open(image_path, "rb") as f:
-            files = {
-                "file": (image_path.split("/")[-1], f, "image/jpeg")
-            }
+            files = {"file": (image_path.split("/")[-1], f, "image/jpeg")}
 
             response = requests.post(
-                f"{BASE_URL}/api/ocr-analyze",
-                files=files,
-                data={"use_ai": "false"}
+                f"{BASE_URL}/api/ocr-analyze", files=files, data={"use_ai": "false"}
             )
 
         if response.status_code == 200:
@@ -89,7 +83,7 @@ def test_ocr_analysis():
             print(f"파일명: {result['filename']}")
 
             # OCR 결과
-            ocr = result['ocr_result']
+            ocr = result["ocr_result"]
             print("\n📄 OCR 결과:")
             print(f"  신뢰도: {ocr['confidence']}")
             print(f"  필드 수: {ocr['fields_count']}")
@@ -98,16 +92,16 @@ def test_ocr_analysis():
             print(f"  {ocr['text'][:200]}...")
 
             # 분석 결과
-            analysis = result['analysis_result']
+            analysis = result["analysis_result"]
             print("\n⚠️  광고 위반 분석:")
             print(f"  위험도: {analysis['risk_level']}")
             print(f"  총점: {analysis['total_score']}")
             print(f"  위반 건수: {analysis['violation_count']}")
             print(f"  요약: {analysis['summary']}")
 
-            if analysis['violations']:
+            if analysis["violations"]:
                 print("\n  주요 위반 사항 (상위 5개):")
-                for v in analysis['violations'][:5]:
+                for v in analysis["violations"][:5]:
                     print(f"    • {v['keyword']} ({v['severity']}) - {v['category']}")
 
             return True

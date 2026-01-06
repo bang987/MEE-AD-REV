@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 # .env 파일 로드
 load_dotenv()
 
+
 def test_openai_connection():
     """OpenAI GPT-4 API 연결 테스트"""
 
@@ -35,17 +36,14 @@ def test_openai_connection():
         response = client.chat.completions.create(
             model="gpt-4-turbo-preview",
             messages=[
-                {
-                    "role": "system",
-                    "content": "당신은 의료법 전문가입니다."
-                },
+                {"role": "system", "content": "당신은 의료법 전문가입니다."},
                 {
                     "role": "user",
-                    "content": "의료법 제56조가 무엇인지 한 문장으로 설명해주세요."
-                }
+                    "content": "의료법 제56조가 무엇인지 한 문장으로 설명해주세요.",
+                },
             ],
             max_tokens=100,
-            temperature=0.7
+            temperature=0.7,
         )
 
         # 응답 확인

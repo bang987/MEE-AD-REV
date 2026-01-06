@@ -2,6 +2,7 @@
 PaddleOCR 모듈 - 한국어 OCR 지원
 PaddleOCR의 korean 모델 사용 (PP-OCRv5)
 """
+
 from pathlib import Path
 import os
 
@@ -25,7 +26,7 @@ def get_paddle_ocr_instance():
             from paddleocr import PaddleOCR
 
             _paddle_ocr_instance = PaddleOCR(
-                lang='korean',           # 한국어 모델
+                lang="korean",  # 한국어 모델
             )
         except Exception as e:
             print(f"PaddleOCR 초기화 오류: {e}")
@@ -62,7 +63,7 @@ async def perform_paddle_ocr(image_path: Path) -> dict:
                 "text": "",
                 "confidence": 0.0,
                 "fields_count": 0,
-                "error": None
+                "error": None,
             }
 
         # 결과 파싱 (다양한 형식 지원)
@@ -70,7 +71,9 @@ async def perform_paddle_ocr(image_path: Path) -> dict:
         confidences = []
 
         # result[0]이 OCRResult 객체인 경우 (PaddleX 최신 버전)
-        ocr_result = result[0] if isinstance(result, list) and len(result) > 0 else result
+        ocr_result = (
+            result[0] if isinstance(result, list) and len(result) > 0 else result
+        )
 
         if ocr_result is None:
             return {
@@ -78,20 +81,20 @@ async def perform_paddle_ocr(image_path: Path) -> dict:
                 "text": "",
                 "confidence": 0.0,
                 "fields_count": 0,
-                "error": None
+                "error": None,
             }
 
         # OCRResult 객체 처리 (PaddleX/PaddleOCR 최신 버전 - dict-like)
-        if hasattr(ocr_result, 'get') and hasattr(ocr_result, 'keys'):
+        if hasattr(ocr_result, "get") and hasattr(ocr_result, "keys"):
             # dict-like OCRResult 객체
-            texts = ocr_result.get('rec_texts', []) or []
-            scores = ocr_result.get('rec_scores', []) or []
+            texts = ocr_result.get("rec_texts", []) or []
+            scores = ocr_result.get("rec_scores", []) or []
             for i, text in enumerate(texts):
                 if text and str(text).strip():  # 빈 문자열 제외
                     extracted_texts.append(str(text))
                     conf = scores[i] if i < len(scores) else 0.0
                     confidences.append(float(conf) if conf else 0.0)
-        elif hasattr(ocr_result, 'rec_texts') and hasattr(ocr_result, 'rec_scores'):
+        elif hasattr(ocr_result, "rec_texts") and hasattr(ocr_result, "rec_scores"):
             # 속성으로 접근하는 OCRResult 객체
             texts = ocr_result.rec_texts if ocr_result.rec_texts else []
             scores = ocr_result.rec_scores if ocr_result.rec_scores else []
@@ -100,7 +103,7 @@ async def perform_paddle_ocr(image_path: Path) -> dict:
                     extracted_texts.append(str(text))
                     conf = scores[i] if i < len(scores) else 0.0
                     confidences.append(float(conf) if conf else 0.0)
-        elif hasattr(ocr_result, '__iter__'):
+        elif hasattr(ocr_result, "__iter__"):
             # 기존 리스트 형식
             for line in ocr_result:
                 if line is None:
@@ -109,16 +112,20 @@ async def perform_paddle_ocr(image_path: Path) -> dict:
                 try:
                     # 새 API 형식: line이 dict인 경우
                     if isinstance(line, dict):
-                        text = line.get('text', '') or line.get('rec_text', '')
-                        conf = line.get('score', 0.0) or line.get('rec_score', 0.0)
+                        text = line.get("text", "") or line.get("rec_text", "")
+                        conf = line.get("score", 0.0) or line.get("rec_score", 0.0)
                     # 기존 API 형식: line[1]이 (text, confidence) 튜플인 경우
                     elif isinstance(line, (list, tuple)) and len(line) >= 2:
                         if isinstance(line[1], (list, tuple)) and len(line[1]) >= 2:
                             text = str(line[1][0])
                             conf = float(line[1][1])
                         elif isinstance(line[1], dict):
-                            text = line[1].get('text', '') or line[1].get('rec_text', '')
-                            conf = line[1].get('score', 0.0) or line[1].get('rec_score', 0.0)
+                            text = line[1].get("text", "") or line[1].get(
+                                "rec_text", ""
+                            )
+                            conf = line[1].get("score", 0.0) or line[1].get(
+                                "rec_score", 0.0
+                            )
                         else:
                             continue
                     else:
@@ -141,7 +148,7 @@ async def perform_paddle_ocr(image_path: Path) -> dict:
             "text": full_text.strip(),
             "confidence": round(avg_confidence, 2),
             "fields_count": len(extracted_texts),
-            "error": None
+            "error": None,
         }
 
     except Exception as e:
@@ -150,5 +157,5 @@ async def perform_paddle_ocr(image_path: Path) -> dict:
             "text": None,
             "confidence": None,
             "fields_count": None,
-            "error": f"PaddleOCR 처리 중 오류: {str(e)}"
+            "error": f"PaddleOCR 처리 중 오류: {str(e)}",
         }

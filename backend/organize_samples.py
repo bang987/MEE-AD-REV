@@ -5,6 +5,7 @@
 from pathlib import Path
 from PIL import Image
 
+
 def check_samples():
     """샘플 이미지 확인 및 통계"""
 
@@ -34,14 +35,10 @@ def check_samples():
         "dermatology": "피부과",
         "dental": "치과",
         "plastic": "성형외과",
-        "oriental": "한의원"
+        "oriental": "한의원",
     }
 
-    risk_levels = {
-        "high": "고위험",
-        "medium": "중위험",
-        "low": "저위험"
-    }
+    risk_levels = {"high": "고위험", "medium": "중위험", "low": "저위험"}
 
     stats = {cat: {"high": 0, "medium": 0, "low": 0} for cat in categories.keys()}
 
@@ -113,12 +110,7 @@ def check_samples():
     print("🎯 목표 대비 진행률")
     print("=" * 60)
 
-    targets = {
-        "dermatology": 3,
-        "dental": 3,
-        "plastic": 2,
-        "oriental": 2
-    }
+    targets = {"dermatology": 3, "dental": 3, "plastic": 2, "oriental": 2}
 
     total_collected = 0
     total_target = 10
@@ -133,8 +125,10 @@ def check_samples():
 
         print(f"{status} {cat_name}: {collected}/{target}개 ({percentage:.0f}%)")
 
-    overall_percentage = (total_collected / total_target * 100)
-    print(f"\n전체 진행률: {total_collected}/{total_target}개 ({overall_percentage:.0f}%)")
+    overall_percentage = total_collected / total_target * 100
+    print(
+        f"\n전체 진행률: {total_collected}/{total_target}개 ({overall_percentage:.0f}%)"
+    )
 
     if total_collected >= total_target:
         print("\n🎉 목표 달성! 모든 샘플 이미지 수집 완료!")

@@ -6,11 +6,12 @@ Day 3 End-to-End 테스트
 from integrated_analyzer import analyze_medical_ad_image
 from pathlib import Path
 
+
 def print_analysis_result(result, test_name):
     """분석 결과 출력"""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"테스트: {test_name}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     if not result.success:
         print(f"❌ 실패: {result.error}")
@@ -32,9 +33,15 @@ def print_analysis_result(result, test_name):
     if result.violations:
         print("  - 발견된 위반 (상위 5개):")
         for i, v in enumerate(result.violations[:5], 1):
-            count_str = f" (x{v['count']})" if v.get('count', 1) > 1 else ""
-            bonus_str = f" +{v.get('repetition_bonus', 0)}점" if v.get('repetition_bonus', 0) > 0 else ""
-            print(f"    {i}. {v['keyword']}{count_str}: {v['severity']} - {v['total_score']}점{bonus_str}")
+            count_str = f" (x{v['count']})" if v.get("count", 1) > 1 else ""
+            bonus_str = (
+                f" +{v.get('repetition_bonus', 0)}점"
+                if v.get("repetition_bonus", 0) > 0
+                else ""
+            )
+            print(
+                f"    {i}. {v['keyword']}{count_str}: {v['severity']} - {v['total_score']}점{bonus_str}"
+            )
             print(f"       법조항: {v['law']}")
 
     # AI 분석 결과
@@ -71,7 +78,9 @@ def print_analysis_result(result, test_name):
     if len(result.violations) > 0 or result.total_score >= 0:
         print("   ✅ 키워드 탐지 작동")
 
-    if result.ai_analysis and ("의료법" in result.ai_analysis or "제56조" in result.ai_analysis):
+    if result.ai_analysis and (
+        "의료법" in result.ai_analysis or "제56조" in result.ai_analysis
+    ):
         print("   ✅ AI 분석 성공 및 법조항 포함")
     elif result.ai_analysis:
         print("   ⚠️  AI 분석 성공했으나 법조항 미포함")
@@ -79,16 +88,18 @@ def print_analysis_result(result, test_name):
     if result.total_processing_time <= 30:
         print(f"   ✅ 전체 처리 시간 30초 이내 ({result.total_processing_time:.2f}초)")
     else:
-        print(f"   ⚠️  전체 처리 시간 초과 ({result.total_processing_time:.2f}초 > 30초)")
+        print(
+            f"   ⚠️  전체 처리 시간 초과 ({result.total_processing_time:.2f}초 > 30초)"
+        )
 
 
 def main():
     """메인 테스트 함수"""
 
-    print("="*60)
+    print("=" * 60)
     print("Day 3 End-to-End 통합 테스트")
     print("목표: 이미지 → OCR → 키워드 → GPT-4 → 판정")
-    print("="*60)
+    print("=" * 60)
 
     # 테스트 샘플
     samples_dir = Path(__file__).parent.parent / "samples"
@@ -101,9 +112,9 @@ def main():
     print_analysis_result(result, f"샘플: {test_sample.name}")
 
     # 최종 요약
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("📊 Day 3 완료 상태")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     if result.success:
         print("✅ End-to-End 분석 성공")
@@ -116,9 +127,9 @@ def main():
     else:
         print(f"❌ 테스트 실패: {result.error}")
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Day 3 테스트 완료")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
 
 if __name__ == "__main__":

@@ -4,20 +4,17 @@ Chroma PersistentClient를 사용하여 의료법 문서를 임베딩하고 저�
 지원 형식: .txt, .pdf
 """
 
-import os
 from pathlib import Path
 from typing import List, Optional
+
 from dotenv import load_dotenv
+from langchain_chroma import Chroma
+from langchain_core.documents import Document
+from langchain_openai import OpenAIEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from pypdf import PdfReader
 
 load_dotenv()
-
-import chromadb
-from chromadb.config import Settings
-from langchain_openai import OpenAIEmbeddings
-from langchain_chroma import Chroma
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_core.documents import Document
-from pypdf import PdfReader
 
 
 class MedicalLawVectorStore:
@@ -26,21 +23,19 @@ class MedicalLawVectorStore:
     def __init__(
         self,
         persist_directory: str = "./chroma_db",
-        collection_name: str = "medical_laws"
+        collection_name: str = "medical_laws",
     ):
         self.persist_directory = persist_directory
         self.collection_name = collection_name
 
         # OpenAI 임베딩 모델
-        self.embeddings = OpenAIEmbeddings(
-            model="text-embedding-3-small"
-        )
+        self.embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 
         # Chroma 벡터 스토어
         self.vectorstore = Chroma(
             collection_name=collection_name,
             embedding_function=self.embeddings,
-            persist_directory=persist_directory
+            persist_directory=persist_directory,
         )
 
     def _read_pdf(self, file_path: str) -> str:
@@ -88,7 +83,7 @@ class MedicalLawVectorStore:
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=500,
             chunk_overlap=50,
-            separators=["\n## ", "\n### ", "\n- ", "\n", " "]
+            separators=["\n## ", "\n### ", "\n- ", "\n", " "],
         )
 
         chunks = text_splitter.split_text(content)
@@ -106,8 +101,8 @@ class MedicalLawVectorStore:
                     "source": str(file_path),
                     "file_type": ext,
                     "chunk_id": i,
-                    "title": title[:100]  # 제목 100자 제한
-                }
+                    "title": title[:100],  # 제목 100자 제한
+                },
             )
             documents.append(doc)
 
@@ -127,10 +122,7 @@ class MedicalLawVectorStore:
         Returns:
             관련 법규 문서 리스트
         """
-        results = self.vectorstore.similarity_search(
-            query=query,
-            k=top_k
-        )
+        results = self.vectorstore.similarity_search(query=query, k=top_k)
         return results
 
     def search_with_score(self, query: str, top_k: int = 3) -> List[tuple]:
@@ -144,10 +136,7 @@ class MedicalLawVectorStore:
         Returns:
             (Document, score) 튜플 리스트
         """
-        results = self.vectorstore.similarity_search_with_score(
-            query=query,
-            k=top_k
-        )
+        results = self.vectorstore.similarity_search_with_score(query=query, k=top_k)
         return results
 
     def get_collection_count(self) -> int:
@@ -160,7 +149,7 @@ class MedicalLawVectorStore:
         self.vectorstore = Chroma(
             collection_name=self.collection_name,
             embedding_function=self.embeddings,
-            persist_directory=self.persist_directory
+            persist_directory=self.persist_directory,
         )
 
     def remove_documents_by_source(self, source_path: str) -> int:
@@ -176,13 +165,11 @@ class MedicalLawVectorStore:
         try:
             # Chroma 컬렉션에서 해당 소스의 문서 ID 조회
             collection = self.vectorstore._collection
-            results = collection.get(
-                where={"source": source_path}
-            )
+            results = collection.get(where={"source": source_path})
 
-            if results and results['ids']:
-                count = len(results['ids'])
-                collection.delete(ids=results['ids'])
+            if results and results["ids"]:
+                count = len(results["ids"])
+                collection.delete(ids=results["ids"])
                 print(f"[RAG] 문서 제거: {source_path} ({count} chunks)")
                 return count
             return 0

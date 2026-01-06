@@ -1,6 +1,7 @@
 """
 FastAPI 백엔드 메인 애플리케이션
 """
+
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -23,8 +24,10 @@ from rag.vector_store import index_single_file, remove_file_from_index, get_vect
 
 class OCREngine(str, Enum):
     """OCR 엔진 선택"""
+
     NAVER = "naver"
     PADDLE = "paddle"
+
 
 # .env 파일 로드
 load_dotenv()
@@ -33,7 +36,7 @@ load_dotenv()
 app = FastAPI(
     title="Medical Advertisement Review API",
     description="의료 광고 리뷰 및 OCR 분석 API",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 # CORS 설정 - 모든 origin 허용 (개발 환경)
@@ -76,7 +79,7 @@ async def root():
     return HealthResponse(
         status="ok",
         message="Medical Advertisement Review API is running",
-        timestamp=datetime.now().isoformat()
+        timestamp=datetime.now().isoformat(),
     )
 
 
@@ -86,7 +89,7 @@ async def health_check():
     return HealthResponse(
         status="healthy",
         message="All systems operational",
-        timestamp=datetime.now().isoformat()
+        timestamp=datetime.now().isoformat(),
     )
 
 
@@ -107,19 +110,21 @@ async def process_ocr(file: UploadFile = File(...)):
     if not NAVER_OCR_API_URL or not NAVER_OCR_SECRET_KEY:
         raise HTTPException(
             status_code=500,
-            detail="OCR API 설정이 올바르지 않습니다. .env 파일을 확인하세요."
+            detail="OCR API 설정이 올바르지 않습니다. .env 파일을 확인하세요.",
         )
 
     # 파일 확장자 검증
     file_ext = Path(file.filename).suffix.lower()
-    if file_ext not in ['.jpg', '.jpeg', '.png']:
+    if file_ext not in [".jpg", ".jpeg", ".png"]:
         raise HTTPException(
             status_code=400,
-            detail="지원하지 않는 파일 형식입니다. jpg, jpeg, png 파일만 업로드 가능합니다."
+            detail="지원하지 않는 파일 형식입니다. jpg, jpeg, png 파일만 업로드 가능합니다.",
         )
 
     # 임시 파일 저장
-    temp_file_path = UPLOAD_DIR / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file.filename}"
+    temp_file_path = (
+        UPLOAD_DIR / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file.filename}"
+    )
 
     try:
         # 파일 저장
@@ -138,8 +143,7 @@ async def process_ocr(file: UploadFile = File(...)):
 
     except Exception as e:
         raise HTTPException(
-            status_code=500,
-            detail=f"OCR 처리 중 오류가 발생했습니다: {str(e)}"
+            status_code=500, detail=f"OCR 처리 중 오류가 발생했습니다: {str(e)}"
         )
 
     finally:
@@ -165,7 +169,7 @@ async def perform_naver_ocr(image_path: Path) -> dict:
             "text": None,
             "confidence": None,
             "fields_count": None,
-            "error": "NAVER_OCR_API_URL 환경변수가 설정되지 않았습니다."
+            "error": "NAVER_OCR_API_URL 환경변수가 설정되지 않았습니다.",
         }
 
     try:
@@ -175,25 +179,18 @@ async def perform_naver_ocr(image_path: Path) -> dict:
 
         # 파일 확장자 확인
         file_ext = image_path.suffix.lower()
-        image_format = "jpg" if file_ext in ['.jpg', '.jpeg'] else "png"
+        image_format = "jpg" if file_ext in [".jpg", ".jpeg"] else "png"
 
         # 요청 본문 구성
         request_json = {
-            "images": [
-                {
-                    "format": image_format,
-                    "name": "medical_ad_image"
-                }
-            ],
+            "images": [{"format": image_format, "name": "medical_ad_image"}],
             "requestId": f"ocr-{datetime.now().strftime('%Y%m%d%H%M%S')}",
             "version": "V2",
-            "timestamp": 0
+            "timestamp": 0,
         }
 
         # 헤더 설정
-        headers = {
-            "X-OCR-SECRET": NAVER_OCR_SECRET_KEY or ""
-        }
+        headers = {"X-OCR-SECRET": NAVER_OCR_SECRET_KEY or ""}
 
         # 비동기 HTTP 요청 (httpx 사용)
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -201,13 +198,11 @@ async def perform_naver_ocr(image_path: Path) -> dict:
             # message 필드는 filename 없이, file 필드는 filename과 함께 전송
             files = [
                 ("message", (None, json.dumps(request_json), "application/json")),
-                ("file", (image_path.name, image_data, f"image/{image_format}"))
+                ("file", (image_path.name, image_data, f"image/{image_format}")),
             ]
 
             response = await client.post(
-                NAVER_OCR_API_URL,
-                headers=headers,
-                files=files
+                NAVER_OCR_API_URL, headers=headers, files=files
             )
 
         if response.status_code == 200:
@@ -229,7 +224,9 @@ async def perform_naver_ocr(image_path: Path) -> dict:
                     total_confidence += confidence
 
                 # 평균 신뢰도 계산
-                avg_confidence = total_confidence / fields_count if fields_count > 0 else 0.0
+                avg_confidence = (
+                    total_confidence / fields_count if fields_count > 0 else 0.0
+                )
             else:
                 avg_confidence = 0.0
 
@@ -238,7 +235,7 @@ async def perform_naver_ocr(image_path: Path) -> dict:
                 "text": extracted_text.strip(),
                 "confidence": round(avg_confidence, 2),
                 "fields_count": fields_count,
-                "error": None
+                "error": None,
             }
         else:
             return {
@@ -246,7 +243,7 @@ async def perform_naver_ocr(image_path: Path) -> dict:
                 "text": None,
                 "confidence": None,
                 "fields_count": None,
-                "error": f"OCR API 오류: HTTP {response.status_code} - {response.text[:200]}"
+                "error": f"OCR API 오류: HTTP {response.status_code} - {response.text[:200]}",
             }
 
     except httpx.TimeoutException:
@@ -255,7 +252,7 @@ async def perform_naver_ocr(image_path: Path) -> dict:
             "text": None,
             "confidence": None,
             "fields_count": None,
-            "error": "OCR API 요청 시간 초과"
+            "error": "OCR API 요청 시간 초과",
         }
 
     except Exception as e:
@@ -264,7 +261,7 @@ async def perform_naver_ocr(image_path: Path) -> dict:
             "text": None,
             "confidence": None,
             "fields_count": None,
-            "error": f"OCR 처리 중 오류: {str(e)}"
+            "error": f"OCR 처리 중 오류: {str(e)}",
         }
 
 
@@ -298,8 +295,7 @@ async def process_batch_ocr(files: List[UploadFile] = File(...)):
     """
     if len(files) > 10:
         raise HTTPException(
-            status_code=400,
-            detail="한 번에 최대 10개의 파일만 업로드할 수 있습니다."
+            status_code=400, detail="한 번에 최대 10개의 파일만 업로드할 수 있습니다."
         )
 
     results = []
@@ -309,17 +305,13 @@ async def process_batch_ocr(files: List[UploadFile] = File(...)):
             result = await process_ocr(file)
             results.append(result)
         except HTTPException as e:
-            results.append(OCRResponse(
-                success=False,
-                filename=file.filename,
-                error=e.detail
-            ))
+            results.append(
+                OCRResponse(success=False, filename=file.filename, error=e.detail)
+            )
         except Exception as e:
-            results.append(OCRResponse(
-                success=False,
-                filename=file.filename,
-                error=str(e)
-            ))
+            results.append(
+                OCRResponse(success=False, filename=file.filename, error=str(e))
+            )
 
     return results
 
@@ -352,6 +344,7 @@ class OCRAnalysisResponse(BaseModel):
 
 class FileStatus(BaseModel):
     """개별 파일 처리 상태"""
+
     filename: str
     status: str  # pending, ocr, analyzing, completed, failed
     progress: int  # 0-100
@@ -424,7 +417,9 @@ def cleanup_old_batches():
     return len(to_delete)
 
 
-def update_file_status(batch_id: str, filename: str, status: str, progress: int, error: str = None):
+def update_file_status(
+    batch_id: str, filename: str, status: str, progress: int, error: str = None
+):
     """
     개별 파일의 처리 상태 업데이트
 
@@ -450,12 +445,9 @@ def update_file_status(batch_id: str, filename: str, status: str, progress: int,
             return
 
     # 파일이 목록에 없으면 추가
-    batch.file_statuses.append(FileStatus(
-        filename=filename,
-        status=status,
-        progress=progress,
-        error=error
-    ))
+    batch.file_statuses.append(
+        FileStatus(filename=filename, status=status, progress=progress, error=error)
+    )
 
 
 # 백그라운드 클린업 태스크
@@ -496,7 +488,7 @@ async def process_single_file_async(
     use_ai: bool,
     ocr_engine: OCREngine = OCREngine.NAVER,
     use_rag: bool = True,
-    batch_id: str = None
+    batch_id: str = None,
 ) -> Dict[str, Any]:
     """
     단일 파일 비동기 OCR + 분석 (파일별 상태 업데이트 포함)
@@ -521,13 +513,15 @@ async def process_single_file_async(
 
         if not ocr_result["success"]:
             if batch_id:
-                update_file_status(batch_id, filename, "failed", 0, ocr_result.get("error", "OCR 실패"))
+                update_file_status(
+                    batch_id, filename, "failed", 0, ocr_result.get("error", "OCR 실패")
+                )
             return {
                 "filename": filename,
                 "success": False,
                 "error": ocr_result.get("error", "OCR 실패"),
                 "ocr_result": None,
-                "analysis_result": None
+                "analysis_result": None,
             }
 
         # 광고 분석 시작
@@ -536,7 +530,9 @@ async def process_single_file_async(
 
         extracted_text = ocr_result["text"]
         # 비동기 분석 함수 사용
-        analysis_result = await analyze_complete_async(extracted_text, use_ai=use_ai, use_rag=use_rag)
+        analysis_result = await analyze_complete_async(
+            extracted_text, use_ai=use_ai, use_rag=use_rag
+        )
 
         # 완료
         if batch_id:
@@ -548,10 +544,10 @@ async def process_single_file_async(
             "ocr_result": {
                 "text": ocr_result["text"],
                 "confidence": ocr_result["confidence"],
-                "fields_count": ocr_result["fields_count"]
+                "fields_count": ocr_result["fields_count"],
             },
             "analysis_result": analysis_result.to_dict(),
-            "error": None
+            "error": None,
         }
 
     except Exception as e:
@@ -562,7 +558,7 @@ async def process_single_file_async(
             "success": False,
             "error": f"처리 중 오류: {str(e)}",
             "ocr_result": None,
-            "analysis_result": None
+            "analysis_result": None,
         }
 
 
@@ -572,7 +568,7 @@ async def batch_analyze_files(
     use_ai: bool,
     ocr_engine: OCREngine = OCREngine.NAVER,
     use_rag: bool = True,
-    max_concurrent: int = 10  # Naver OCR는 5개 제한 있음 (Paddle은 제한 없음)
+    max_concurrent: int = 10,  # Naver OCR는 5개 제한 있음 (Paddle은 제한 없음)
 ):
     """
     배치 파일 병렬 분석
@@ -610,8 +606,9 @@ async def batch_analyze_files(
 
                 # 진행률 계산
                 progress = (
-                    batch_status_store[batch_id].processed_files /
-                    batch_status_store[batch_id].total_files * 100
+                    batch_status_store[batch_id].processed_files
+                    / batch_status_store[batch_id].total_files
+                    * 100
                 )
                 batch_status_store[batch_id].progress_percent = progress
 
@@ -620,15 +617,23 @@ async def batch_analyze_files(
                 batch_status_store[batch_id].elapsed_seconds = elapsed
 
                 if batch_status_store[batch_id].processed_files > 0:
-                    avg_time_per_file = elapsed / batch_status_store[batch_id].processed_files
+                    avg_time_per_file = (
+                        elapsed / batch_status_store[batch_id].processed_files
+                    )
                     remaining_files = (
-                        batch_status_store[batch_id].total_files -
-                        batch_status_store[batch_id].processed_files
+                        batch_status_store[batch_id].total_files
+                        - batch_status_store[batch_id].processed_files
                     )
                     # 병렬 처리를 고려한 예상 시간 (남은 파일 / 동시 처리 수)
-                    estimated_remaining = (remaining_files / max_concurrent) * avg_time_per_file
-                    estimated_completion = datetime.now() + timedelta(seconds=estimated_remaining)
-                    batch_status_store[batch_id].estimated_completion = estimated_completion.isoformat()
+                    estimated_remaining = (
+                        remaining_files / max_concurrent
+                    ) * avg_time_per_file
+                    estimated_completion = datetime.now() + timedelta(
+                        seconds=estimated_remaining
+                    )
+                    batch_status_store[
+                        batch_id
+                    ].estimated_completion = estimated_completion.isoformat()
 
                 batch_status_store[batch_id].results.append(result)
 
@@ -653,14 +658,19 @@ async def batch_analyze_files(
             batch_results_file = batch_results_dir / f"{batch_id}.json"
 
             with open(batch_results_file, "w", encoding="utf-8") as f:
-                json.dump({
-                    "batch_id": batch_id,
-                    "total_files": batch_status_store[batch_id].total_files,
-                    "processed_files": batch_status_store[batch_id].processed_files,
-                    "results": batch_status_store[batch_id].results,
-                    "errors": batch_status_store[batch_id].errors,
-                    "completed_at": datetime.now().isoformat()
-                }, f, ensure_ascii=False, indent=2)
+                json.dump(
+                    {
+                        "batch_id": batch_id,
+                        "total_files": batch_status_store[batch_id].total_files,
+                        "processed_files": batch_status_store[batch_id].processed_files,
+                        "results": batch_status_store[batch_id].results,
+                        "errors": batch_status_store[batch_id].errors,
+                        "completed_at": datetime.now().isoformat(),
+                    },
+                    f,
+                    ensure_ascii=False,
+                    indent=2,
+                )
 
     except Exception as e:
         if batch_id in batch_status_store:
@@ -680,7 +690,9 @@ async def analyze_advertisement(request: AnalysisRequest):
         AnalysisResponse: 광고 분석 결과
     """
     try:
-        result = analyze_complete(request.text, use_ai=request.use_ai, use_rag=request.use_rag)
+        result = analyze_complete(
+            request.text, use_ai=request.use_ai, use_rag=request.use_rag
+        )
 
         return AnalysisResponse(
             success=True,
@@ -690,13 +702,12 @@ async def analyze_advertisement(request: AnalysisRequest):
             summary=result.summary,
             ai_analysis=result.ai_analysis,
             violation_count=len(result.violations),
-            error=None
+            error=None,
         )
 
     except Exception as e:
         raise HTTPException(
-            status_code=500,
-            detail=f"분석 중 오류가 발생했습니다: {str(e)}"
+            status_code=500, detail=f"분석 중 오류가 발생했습니다: {str(e)}"
         )
 
 
@@ -716,13 +727,15 @@ async def get_keywords():
         categories = keyword_db.get_categories()
         keywords_by_category = {}
         for category in categories:
-            keywords_by_category[category] = keyword_db.get_keywords_by_category(category)
+            keywords_by_category[category] = keyword_db.get_keywords_by_category(
+                category
+            )
 
         # 심각도별 키워드
         keywords_by_severity = {
             "HIGH": keyword_db.get_keywords_by_severity("HIGH"),
             "MEDIUM": keyword_db.get_keywords_by_severity("MEDIUM"),
-            "LOW": keyword_db.get_keywords_by_severity("LOW")
+            "LOW": keyword_db.get_keywords_by_severity("LOW"),
         }
 
         # 통계
@@ -735,13 +748,12 @@ async def get_keywords():
             "categories": categories,
             "keywords_by_category": keywords_by_category,
             "keywords_by_severity": keywords_by_severity,
-            "statistics": stats
+            "statistics": stats,
         }
 
     except Exception as e:
         raise HTTPException(
-            status_code=500,
-            detail=f"키워드 조회 중 오류가 발생했습니다: {str(e)}"
+            status_code=500, detail=f"키워드 조회 중 오류가 발생했습니다: {str(e)}"
         )
 
 
@@ -750,7 +762,7 @@ async def process_ocr_and_analyze(
     file: UploadFile = File(...),
     use_ai: str = Form("false"),
     use_rag: str = Form("true"),
-    ocr_engine: str = Form("naver")
+    ocr_engine: str = Form("naver"),
 ):
     """
     이미지 OCR + 광고 위반 분석 통합
@@ -771,26 +783,29 @@ async def process_ocr_and_analyze(
     use_rag_bool = use_rag.lower() == "true"
 
     # OCR 엔진 결정
-    engine = OCREngine(ocr_engine) if ocr_engine in ["naver", "paddle"] else OCREngine.NAVER
+    engine = (
+        OCREngine(ocr_engine) if ocr_engine in ["naver", "paddle"] else OCREngine.NAVER
+    )
 
     # Naver OCR 선택 시에만 API 키 검증
     if engine == OCREngine.NAVER:
         if not NAVER_OCR_API_URL or not NAVER_OCR_SECRET_KEY:
             raise HTTPException(
-                status_code=500,
-                detail="Naver OCR API 설정이 올바르지 않습니다."
+                status_code=500, detail="Naver OCR API 설정이 올바르지 않습니다."
             )
 
     # 파일 확장자 검증
     file_ext = Path(file.filename).suffix.lower()
-    if file_ext not in ['.jpg', '.jpeg', '.png']:
+    if file_ext not in [".jpg", ".jpeg", ".png"]:
         raise HTTPException(
             status_code=400,
-            detail="지원하지 않는 파일 형식입니다. jpg, jpeg, png 파일만 업로드 가능합니다."
+            detail="지원하지 않는 파일 형식입니다. jpg, jpeg, png 파일만 업로드 가능합니다.",
         )
 
     # 임시 파일 저장
-    temp_file_path = UPLOAD_DIR / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file.filename}"
+    temp_file_path = (
+        UPLOAD_DIR / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file.filename}"
+    )
 
     try:
         # 파일 저장
@@ -804,12 +819,14 @@ async def process_ocr_and_analyze(
             return OCRAnalysisResponse(
                 success=False,
                 error=ocr_result.get("error", "OCR 실패"),
-                filename=file.filename
+                filename=file.filename,
             )
 
         # 2. 광고 분석
         extracted_text = ocr_result["text"]
-        analysis_result = analyze_complete(extracted_text, use_ai=use_ai_bool, use_rag=use_rag_bool)
+        analysis_result = analyze_complete(
+            extracted_text, use_ai=use_ai_bool, use_rag=use_rag_bool
+        )
 
         # 처리 시간 계산
         processing_time = (datetime.now() - start_time).total_seconds()
@@ -820,16 +837,15 @@ async def process_ocr_and_analyze(
                 "text": ocr_result["text"],
                 "confidence": ocr_result["confidence"],
                 "fields_count": ocr_result["fields_count"],
-                "processing_time": processing_time
+                "processing_time": processing_time,
             },
             analysis_result=analysis_result.to_dict(),
-            filename=file.filename
+            filename=file.filename,
         )
 
     except Exception as e:
         raise HTTPException(
-            status_code=500,
-            detail=f"처리 중 오류가 발생했습니다: {str(e)}"
+            status_code=500, detail=f"처리 중 오류가 발생했습니다: {str(e)}"
         )
 
     finally:
@@ -844,7 +860,7 @@ async def batch_upload_analyze(
     use_ai: str = Form("false"),
     use_rag: str = Form("true"),
     ocr_engine: str = Form("naver"),
-    background_tasks: BackgroundTasks = None
+    background_tasks: BackgroundTasks = None,
 ):
     """
     다중 파일 업로드 및 배치 분석
@@ -864,23 +880,25 @@ async def batch_upload_analyze(
     use_rag_bool = use_rag.lower() == "true"
 
     # OCR 엔진 결정
-    engine = OCREngine(ocr_engine) if ocr_engine in ["naver", "paddle"] else OCREngine.NAVER
+    engine = (
+        OCREngine(ocr_engine) if ocr_engine in ["naver", "paddle"] else OCREngine.NAVER
+    )
 
     # 파일 수 제한
     if len(files) > 10:
         raise HTTPException(
-            status_code=400,
-            detail="한 번에 최대 10개의 파일만 업로드할 수 있습니다."
+            status_code=400, detail="한 번에 최대 10개의 파일만 업로드할 수 있습니다."
         )
 
     if len(files) == 0:
         raise HTTPException(
-            status_code=400,
-            detail="최소 1개 이상의 파일을 업로드해야 합니다."
+            status_code=400, detail="최소 1개 이상의 파일을 업로드해야 합니다."
         )
 
     # 배치 ID 생성
-    batch_id = f"batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+    batch_id = (
+        f"batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+    )
 
     # 배치 전용 임시 폴더 생성
     batch_temp_dir = Path("uploads/temp") / batch_id
@@ -893,10 +911,10 @@ async def batch_upload_analyze(
         for file in files:
             # 파일 확장자 검증
             file_ext = Path(file.filename).suffix.lower()
-            if file_ext not in ['.jpg', '.jpeg', '.png']:
+            if file_ext not in [".jpg", ".jpeg", ".png"]:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"지원하지 않는 파일 형식입니다: {file.filename}. jpg, jpeg, png 파일만 업로드 가능합니다."
+                    detail=f"지원하지 않는 파일 형식입니다: {file.filename}. jpg, jpeg, png 파일만 업로드 가능합니다.",
                 )
 
             # 파일 저장
@@ -914,17 +932,19 @@ async def batch_upload_analyze(
             processed_files=0,
             progress_percent=0.0,
             results=[],
-            errors=[]
+            errors=[],
         )
 
         # 백그라운드에서 배치 분석 시작
-        background_tasks.add_task(batch_analyze_files, batch_id, file_paths, use_ai_bool, engine, use_rag_bool)
+        background_tasks.add_task(
+            batch_analyze_files, batch_id, file_paths, use_ai_bool, engine, use_rag_bool
+        )
 
         return {
             "success": True,
             "batch_id": batch_id,
             "total_files": len(files),
-            "message": "배치 분석이 시작되었습니다. /api/batch-status/{batch_id}로 진행 상태를 확인하세요."
+            "message": "배치 분석이 시작되었습니다. /api/batch-status/{batch_id}로 진행 상태를 확인하세요.",
         }
 
     except Exception as e:
@@ -933,8 +953,7 @@ async def batch_upload_analyze(
             shutil.rmtree(batch_temp_dir)
 
         raise HTTPException(
-            status_code=500,
-            detail=f"파일 업로드 중 오류가 발생했습니다: {str(e)}"
+            status_code=500, detail=f"파일 업로드 중 오류가 발생했습니다: {str(e)}"
         )
 
 
@@ -965,12 +984,11 @@ async def get_batch_status(batch_id: str):
                 processed_files=data["processed_files"],
                 progress_percent=100.0,
                 results=data["results"],
-                errors=data.get("errors", [])
+                errors=data.get("errors", []),
             )
 
     raise HTTPException(
-        status_code=404,
-        detail=f"배치 ID '{batch_id}'를 찾을 수 없습니다."
+        status_code=404, detail=f"배치 ID '{batch_id}'를 찾을 수 없습니다."
     )
 
 
@@ -992,8 +1010,7 @@ async def classify_files(request: ClassifyRequest):
     batch_temp_dir = Path("uploads/temp") / batch_id
     if not batch_temp_dir.exists():
         raise HTTPException(
-            status_code=404,
-            detail=f"배치 폴더를 찾을 수 없습니다: {batch_id}"
+            status_code=404, detail=f"배치 폴더를 찾을 수 없습니다: {batch_id}"
         )
 
     # 분류 폴더
@@ -1036,7 +1053,10 @@ async def classify_files(request: ClassifyRequest):
             if dest_path.exists():
                 file_stem = dest_path.stem
                 file_ext = dest_path.suffix
-                dest_path = dest_dir / f"{file_stem}_{datetime.now().strftime('%Y%m%d_%H%M%S')}{file_ext}"
+                dest_path = (
+                    dest_dir
+                    / f"{file_stem}_{datetime.now().strftime('%Y%m%d_%H%M%S')}{file_ext}"
+                )
 
             shutil.move(str(source_path), str(dest_path))
             success_count += 1
@@ -1058,7 +1078,7 @@ async def classify_files(request: ClassifyRequest):
         "total_files": len(classifications),
         "success_count": success_count,
         "failed_count": failed_count,
-        "errors": errors
+        "errors": errors,
     }
 
 
@@ -1086,26 +1106,23 @@ async def get_documents():
         for file_path in DATA_DIR.iterdir():
             if file_path.is_file() and file_path.suffix.lower() in supported_extensions:
                 stat = file_path.stat()
-                documents.append({
-                    "filename": file_path.name,
-                    "size": stat.st_size,
-                    "type": file_path.suffix.lower().replace(".", ""),
-                    "modified": datetime.fromtimestamp(stat.st_mtime).isoformat()
-                })
+                documents.append(
+                    {
+                        "filename": file_path.name,
+                        "size": stat.st_size,
+                        "type": file_path.suffix.lower().replace(".", ""),
+                        "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    }
+                )
 
         # 파일명 기준 정렬
         documents.sort(key=lambda x: x["filename"])
 
-        return {
-            "success": True,
-            "documents": documents,
-            "total_count": len(documents)
-        }
+        return {"success": True, "documents": documents, "total_count": len(documents)}
 
     except Exception as e:
         raise HTTPException(
-            status_code=500,
-            detail=f"문서 목록 조회 중 오류가 발생했습니다: {str(e)}"
+            status_code=500, detail=f"문서 목록 조회 중 오류가 발생했습니다: {str(e)}"
         )
 
 
@@ -1132,13 +1149,17 @@ async def upload_documents(files: List[UploadFile] = File(...)):
 
         # 확장자 검증
         if file_ext not in supported_extensions:
-            failed.append({"filename": filename, "reason": f"지원하지 않는 형식: {file_ext}"})
+            failed.append(
+                {"filename": filename, "reason": f"지원하지 않는 형식: {file_ext}"}
+            )
             continue
 
         # 파일 크기 검증
         content = await file.read()
         if len(content) > max_file_size:
-            failed.append({"filename": filename, "reason": "파일 크기 초과 (최대 50MB)"})
+            failed.append(
+                {"filename": filename, "reason": "파일 크기 초과 (최대 50MB)"}
+            )
             continue
 
         # 파일 저장
@@ -1173,12 +1194,13 @@ async def upload_documents(files: List[UploadFile] = File(...)):
         "success": len(uploaded) > 0,
         "uploaded": uploaded,
         "failed": failed,
-        "message": f"{len(uploaded)}개 파일 업로드 완료" + (f", {len(failed)}개 실패" if failed else ""),
+        "message": f"{len(uploaded)}개 파일 업로드 완료"
+        + (f", {len(failed)}개 실패" if failed else ""),
         "rag_indexed": {
             "files": indexed_files,
             "total_chunks": indexed_chunks,
-            "total_index_count": total_index_count
-        }
+            "total_index_count": total_index_count,
+        },
     }
 
 
@@ -1199,15 +1221,11 @@ async def delete_document(filename: str):
 
     if not file_path.exists():
         raise HTTPException(
-            status_code=404,
-            detail=f"파일을 찾을 수 없습니다: {filename}"
+            status_code=404, detail=f"파일을 찾을 수 없습니다: {filename}"
         )
 
     if not file_path.is_file():
-        raise HTTPException(
-            status_code=400,
-            detail=f"파일이 아닙니다: {filename}"
-        )
+        raise HTTPException(status_code=400, detail=f"파일이 아닙니다: {filename}")
 
     try:
         # RAG 인덱스에서 먼저 제거
@@ -1224,14 +1242,13 @@ async def delete_document(filename: str):
             "message": f"{filename} 삭제 완료",
             "rag_removed": {
                 "chunks_removed": removed_chunks,
-                "total_index_count": total_index_count
-            }
+                "total_index_count": total_index_count,
+            },
         }
 
     except Exception as e:
         raise HTTPException(
-            status_code=500,
-            detail=f"파일 삭제 중 오류가 발생했습니다: {str(e)}"
+            status_code=500, detail=f"파일 삭제 중 오류가 발생했습니다: {str(e)}"
         )
 
 
@@ -1241,9 +1258,4 @@ if __name__ == "__main__":
     host = os.getenv("SERVER_HOST", "0.0.0.0")
     port = int(os.getenv("SERVER_PORT", "8000"))
 
-    uvicorn.run(
-        "main:app",
-        host=host,
-        port=port,
-        reload=True
-    )
+    uvicorn.run("main:app", host=host, port=port, reload=True)

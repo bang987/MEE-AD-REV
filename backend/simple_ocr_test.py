@@ -1,6 +1,7 @@
 """
 간단한 Naver OCR 테스트
 """
+
 import os
 import requests
 import json
@@ -25,26 +26,19 @@ with open(image_path, "rb") as f:
 
 # 요청 본문
 request_json = {
-    "images": [
-        {
-            "format": "jpg",
-            "name": "test_image"
-        }
-    ],
+    "images": [{"format": "jpg", "name": "test_image"}],
     "requestId": "test-001",
     "version": "V2",
-    "timestamp": 0
+    "timestamp": 0,
 }
 
 # 헤더
-headers = {
-    "X-OCR-SECRET": secret_key
-}
+headers = {"X-OCR-SECRET": secret_key}
 
 # 파일 데이터
 files = {
     "message": (None, json.dumps(request_json), "application/json"),
-    "file": ("test.jpg", image_data, "image/jpeg")
+    "file": ("test.jpg", image_data, "image/jpeg"),
 }
 
 try:
@@ -71,4 +65,5 @@ try:
 except Exception as e:
     print(f"❌ 오류: {e}")
     import traceback
+
     traceback.print_exc()

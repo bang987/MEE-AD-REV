@@ -58,29 +58,29 @@ class AnalysisResult:
             "ocr": {
                 "text": self.ocr_text,
                 "confidence": self.ocr_confidence,
-                "processing_time": self.ocr_processing_time
+                "processing_time": self.ocr_processing_time,
             },
             "keyword_analysis": {
                 "violations": self.violations,
                 "total_score": self.total_score,
                 "risk_level": self.risk_level,
                 "summary": self.violation_summary,
-                "violation_count": len(self.violations)
+                "violation_count": len(self.violations),
             },
             "ai_analysis": {
                 "result": self.ai_analysis,
-                "processing_time": self.ai_processing_time
+                "processing_time": self.ai_processing_time,
             },
             "judgment": {
                 "pass_fail": self.pass_fail,
-                "recommendation": self.recommendation
+                "recommendation": self.recommendation,
             },
             "processing_time": {
                 "ocr": self.ocr_processing_time,
                 "ai": self.ai_processing_time,
-                "total": self.total_processing_time
+                "total": self.total_processing_time,
             },
-            "error": self.error
+            "error": self.error,
         }
 
 
@@ -176,38 +176,28 @@ class MedicalAdAnalyzer:
 
             # 파일 확장자 확인
             file_ext = Path(image_path).suffix.lower()
-            image_format = "jpg" if file_ext in ['.jpg', '.jpeg'] else "png"
+            image_format = "jpg" if file_ext in [".jpg", ".jpeg"] else "png"
 
             # 요청 본문 구성
             request_json = {
-                "images": [
-                    {
-                        "format": image_format,
-                        "name": "medical_ad_image"
-                    }
-                ],
+                "images": [{"format": image_format, "name": "medical_ad_image"}],
                 "requestId": f"ocr-{int(time.time())}",
                 "version": "V2",
-                "timestamp": 0
+                "timestamp": 0,
             }
 
             # 헤더 설정
-            headers = {
-                "X-OCR-SECRET": NAVER_OCR_SECRET_KEY
-            }
+            headers = {"X-OCR-SECRET": NAVER_OCR_SECRET_KEY}
 
             # 파일 데이터 설정
             files = {
                 "message": (None, json.dumps(request_json), "application/json"),
-                "file": (Path(image_path).name, image_data, f"image/{image_format}")
+                "file": (Path(image_path).name, image_data, f"image/{image_format}"),
             }
 
             # API 요청
             response = requests.post(
-                NAVER_OCR_API_URL,
-                headers=headers,
-                files=files,
-                timeout=30
+                NAVER_OCR_API_URL, headers=headers, files=files, timeout=30
             )
 
             if response.status_code == 200:
@@ -229,7 +219,11 @@ class MedicalAdAnalyzer:
                         total_confidence += confidence
 
                     # 평균 신뢰도 계산
-                    avg_confidence = (total_confidence / fields_count * 100) if fields_count > 0 else 0.0
+                    avg_confidence = (
+                        (total_confidence / fields_count * 100)
+                        if fields_count > 0
+                        else 0.0
+                    )
                 else:
                     avg_confidence = 0.0
 
@@ -237,19 +231,16 @@ class MedicalAdAnalyzer:
                     "success": True,
                     "text": extracted_text.strip(),
                     "confidence": round(avg_confidence, 2),
-                    "fields_count": fields_count
+                    "fields_count": fields_count,
                 }
             else:
                 return {
                     "success": False,
-                    "error": f"OCR API 오류: HTTP {response.status_code}"
+                    "error": f"OCR API 오류: HTTP {response.status_code}",
                 }
 
         except Exception as e:
-            return {
-                "success": False,
-                "error": f"OCR 처리 중 오류: {str(e)}"
-            }
+            return {"success": False, "error": f"OCR 처리 중 오류: {str(e)}"}
 
     def _determine_pass_fail(self, result: AnalysisResult) -> str:
         """
@@ -313,15 +304,15 @@ if __name__ == "__main__":
         # 기본 샘플 이미지
         image_path = "../samples/보톡스.jpg"
 
-    print("="*60)
+    print("=" * 60)
     print("통합 의료 광고 분석 엔진 테스트")
-    print("="*60)
+    print("=" * 60)
 
     result = analyze_medical_ad_image(image_path, use_ai=True)
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("📊 최종 결과")
-    print("="*60)
+    print("=" * 60)
 
     if result.success:
         print(f"판정: {result.pass_fail}")

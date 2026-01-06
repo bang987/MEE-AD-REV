@@ -1,6 +1,7 @@
 """
 모든 샘플 이미지로 Naver OCR 테스트
 """
+
 import os
 import requests
 import json
@@ -13,6 +14,7 @@ load_dotenv()
 api_url = os.getenv("NAVER_OCR_API_URL")
 secret_key = os.getenv("NAVER_OCR_SECRET_KEY")
 
+
 def test_ocr_image(image_path):
     """단일 이미지 OCR 테스트"""
     try:
@@ -22,30 +24,23 @@ def test_ocr_image(image_path):
 
         # 파일 확장자 확인
         file_ext = Path(image_path).suffix.lower()
-        image_format = "jpg" if file_ext in ['.jpg', '.jpeg'] else "png"
+        image_format = "jpg" if file_ext in [".jpg", ".jpeg"] else "png"
 
         # 요청 본문
         request_json = {
-            "images": [
-                {
-                    "format": image_format,
-                    "name": "test_image"
-                }
-            ],
+            "images": [{"format": image_format, "name": "test_image"}],
             "requestId": f"test-{Path(image_path).stem}",
             "version": "V2",
-            "timestamp": 0
+            "timestamp": 0,
         }
 
         # 헤더
-        headers = {
-            "X-OCR-SECRET": secret_key
-        }
+        headers = {"X-OCR-SECRET": secret_key}
 
         # 파일 데이터
         files = {
             "message": (None, json.dumps(request_json), "application/json"),
-            "file": (Path(image_path).name, image_data, f"image/{image_format}")
+            "file": (Path(image_path).name, image_data, f"image/{image_format}"),
         }
 
         # API 요청
@@ -64,22 +59,18 @@ def test_ocr_image(image_path):
             return {
                 "success": True,
                 "text": extracted_text.strip(),
-                "status_code": response.status_code
+                "status_code": response.status_code,
             }
         else:
             return {
                 "success": False,
                 "error": f"HTTP {response.status_code}",
                 "message": response.text[:200],
-                "status_code": response.status_code
+                "status_code": response.status_code,
             }
 
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "message": ""
-        }
+        return {"success": False, "error": str(e), "message": ""}
 
 
 def main():
@@ -111,19 +102,19 @@ def main():
         print("-" * 80)
 
         result = test_ocr_image(image_path)
-        results.append({
-            "filename": filename,
-            "path": image_path,
-            **result
-        })
+        results.append({"filename": filename, "path": image_path, **result})
 
         if result["success"]:
             print(f"✅ 성공 (HTTP {result['status_code']})")
-            text_preview = result["text"][:150] + "..." if len(result["text"]) > 150 else result["text"]
+            text_preview = (
+                result["text"][:150] + "..."
+                if len(result["text"]) > 150
+                else result["text"]
+            )
             print(f"추출된 텍스트: {text_preview}")
         else:
             print(f"❌ 실패: {result.get('error', 'Unknown error')}")
-            if result.get('message'):
+            if result.get("message"):
                 print(f"메시지: {result['message'][:100]}")
 
     # 최종 결과 요약
