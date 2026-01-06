@@ -2,15 +2,16 @@
 
 ## 📋 문서 정보
 - **프로젝트명**: 의료광고 AI 사전 심의 시스템
-- **버전**: MVP v3.4 (GPT-5.2 + RAG 선택 + PaddleOCR + 관리자 페이지)
+- **버전**: MVP v3.5 (GPT-5.2 + RAG 선택 + PaddleOCR + Next.js 16 리디자인)
 - **목표 완료일**: 2026년 1월 14일
 - **작성일**: 2026년 1월 4일
 - **LLM**: GPT-5.2 (OpenAI Responses API + Reasoning)
 - **RAG**: Chroma 벡터 DB + OpenAI Embeddings (적용/미적용 선택 가능)
 - **OCR**: Naver Clova OCR + PaddleOCR (선택 가능)
 - **관리자**: RAG 문서 관리 페이지 (업로드/삭제/목록)
-- **진행 상황**: 95% (Day 1-8 완료, RAG 구현, RAG 옵션, 관리자 페이지) → 목표 100%
-- **최종 업데이트**: 2026년 1월 6일 (관리자 페이지 구현 완료)
+- **Frontend**: Next.js 16 + TypeScript + Tailwind CSS v4
+- **진행 상황**: 97% (Day 1-8 완료, RAG 구현, 관리자 페이지, Frontend 리디자인) → 목표 100%
+- **최종 업데이트**: 2026년 1월 6일 (Frontend Next.js 16 리디자인 완료)
 
 ---
 
@@ -139,13 +140,36 @@ Data Storage:
 
 ### Frontend
 ```yaml
-Framework: Pure HTML/JavaScript (React 제거)
-  - 단일 파일: index.html (1,700+ lines)
-  - Vite 개발 서버 사용
-Styling: 기본 CSS (inline)
-  - Purple gradient theme
-  - 반응형 디자인
-Host: 로컬 (http://localhost:5173)
+Framework: Next.js 16 (App Router)
+  - TypeScript 지원
+  - Turbopack 개발 서버
+  - 컴포넌트 기반 구조
+Language: TypeScript
+Styling: Tailwind CSS v4
+  - 밝은 회색 배경 (bg-gray-50)
+  - Primary: Emerald (emerald-500, emerald-600)
+  - 모던하고 깔끔한 UI
+Icons: lucide-react
+Host: http://192.168.0.2:5173
+
+Components:
+  Layout:
+    - Header.tsx (네비게이션, Admin 링크)
+    - Footer.tsx (푸터)
+  Analysis:
+    - UploadCard.tsx (파일 드래그앤드롭)
+    - AnalysisOptions.tsx (OCR/AI/RAG 옵션)
+    - ProgressBar.tsx (진행률 표시)
+    - ResultsTable.tsx (결과 테이블)
+    - DetailModal.tsx (상세 분석 모달)
+  Admin:
+    - DocumentUpload.tsx (문서 업로드)
+    - DocumentList.tsx (문서 목록)
+  UI:
+    - Button.tsx (공통 버튼)
+    - Card.tsx (공통 카드)
+    - Badge.tsx (상태 뱃지)
+    - Message.tsx (알림 메시지)
 ```
 
 ---
@@ -906,14 +930,23 @@ medical-ad-mvp/
 │       ├── vector_store.py          # Chroma 벡터 DB 관리
 │       └── retriever.py             # 법규 검색 + GPT 통합
 │
-├── frontend/
-│   ├── src/
-│   │   ├── App.jsx                  # 메인 컴포넌트
-│   │   ├── App.css                  # 스타일
-│   │   └── main.jsx                 # 엔트리
-│   ├── public/
-│   ├── package.json
-│   └── vite.config.js
+├── frontend/                           # Next.js 16 + TypeScript
+│   ├── app/
+│   │   ├── layout.tsx                  # 루트 레이아웃
+│   │   ├── page.tsx                    # 메인 페이지 (광고 분석)
+│   │   ├── admin/page.tsx              # 관리자 페이지
+│   │   └── globals.css                 # Tailwind 글로벌
+│   ├── components/
+│   │   ├── layout/                     # Header, Footer
+│   │   ├── analysis/                   # 분석 관련 컴포넌트
+│   │   ├── admin/                      # 관리자 컴포넌트
+│   │   └── ui/                         # 공통 UI 컴포넌트
+│   ├── lib/api.ts                      # API 클라이언트
+│   ├── types/index.ts                  # TypeScript 타입
+│   ├── tailwind.config.ts
+│   ├── next.config.ts
+│   ├── tsconfig.json
+│   └── package.json
 │
 ├── samples/                         # 샘플 이미지
 │   ├── sample_001.jpg
@@ -1021,6 +1054,13 @@ medical-ad-mvp/
 
 ## 📝 버전 히스토리
 
+- v3.5 (2026-01-06): Frontend Next.js 16 리디자인
+  - Pure HTML/JS → Next.js 16 App Router + TypeScript 전환
+  - Tailwind CSS v4 적용 (Emerald 테마)
+  - 컴포넌트 기반 구조 (Layout, Analysis, Admin, UI)
+  - OCR 엔진 UI: Naver Clova OCR / PaddleOCR 선택
+  - 상세 분석 모달: 위반 사항, AI 분석, OCR 텍스트 표시
+  - 포트 변경: 5173 (공유기 포트 포워딩 호환)
 - v3.4 (2026-01-06): 관리자 페이지 구현
   - RAG 문서 관리 페이지 (admin.html) 추가
   - 문서 목록 조회/업로드/삭제 API 구현
