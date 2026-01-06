@@ -1,5 +1,5 @@
 // Analysis Types
-export type RiskLevel = 'SAFE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type RiskLevel = 'N/A' | 'SAFE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type JudgmentType = 'approved' | 'rejected' | 'review';
 export type OCREngine = 'naver' | 'paddle';
 
@@ -16,6 +16,16 @@ export interface Violation {
   context?: string;
 }
 
+// AI가 발견한 위반 사항
+export interface AIViolation {
+  type: string;
+  description: string;
+  severity: 'HIGH' | 'MEDIUM' | 'LOW';
+}
+
+// 판정 타입
+export type Judgment = '불필요' | '통과' | '주의' | '수정제안' | '수정권고' | '게재불가';
+
 export interface OCRResult {
   text: string;
   confidence: number;
@@ -24,11 +34,15 @@ export interface OCRResult {
 
 export interface AnalysisResult {
   violations: Violation[];
-  total_score: number;
-  risk_level: RiskLevel;
+  risk_score: number;  // 위험점수 (0-100)
+  total_score: number;  // 하위 호환성 (risk_score와 동일)
+  risk_level: RiskLevel;  // 위험도 (위험점수 기반 자동 계산)
+  judgment: Judgment;  // 판정 (위험도 기반 자동 계산)
   summary: string;
-  ai_analysis: string | null;
-  violation_count: number;
+  ai_analysis: string | null;  // 1차 AI 분석 텍스트 (상세용)
+  ai_violations: AIViolation[];  // AI가 발견한 위반 목록
+  keyword_risk_score: number;  // 키워드만의 위험점수 (참고용)
+  violation_count: number;  // 키워드 + AI 위반 총 건수
 }
 
 export interface BatchFileResult {

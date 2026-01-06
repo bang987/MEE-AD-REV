@@ -3,12 +3,69 @@
 """
 from typing import Dict, List, Optional
 import os
+import re
+import json
 import asyncio
 from openai import OpenAI, AsyncOpenAI
 from medical_keywords import keyword_db
 from dotenv import load_dotenv
 
 load_dotenv()
+
+
+# ============================================
+# 위험점수 → 위험도 → 판정 자동 계산 함수
+# ============================================
+
+def calculate_risk_level(risk_score: int) -> str:
+    """
+    위험점수 기반 위험도 자동 결정
+
+    | 위험점수 | 위험도   |
+    |----------|----------|
+    | -1       | N/A      | (의료광고 아님)
+    | 0-10     | SAFE     |
+    | 11-30    | LOW      |
+    | 31-60    | MEDIUM   |
+    | 61-80    | HIGH     |
+    | 81-100   | CRITICAL |
+    """
+    if risk_score < 0:
+        return "N/A"
+    elif risk_score >= 81:
+        return "CRITICAL"
+    elif risk_score >= 61:
+        return "HIGH"
+    elif risk_score >= 31:
+        return "MEDIUM"
+    elif risk_score >= 11:
+        return "LOW"
+    else:
+        return "SAFE"
+
+
+def calculate_judgment(risk_level: str) -> str:
+    """
+    위험도 기반 판정 자동 결정
+
+    | 위험도   | 판정     |
+    |----------|----------|
+    | N/A      | 불필요   | (의료광고 아님)
+    | SAFE     | 통과     |
+    | LOW      | 주의     |
+    | MEDIUM   | 수정제안 |
+    | HIGH     | 수정권고 |
+    | CRITICAL | 게재불가 |
+    """
+    mapping = {
+        "N/A": "불필요",
+        "SAFE": "통과",
+        "LOW": "주의",
+        "MEDIUM": "수정제안",
+        "HIGH": "수정권고",
+        "CRITICAL": "게재불가"
+    }
+    return mapping.get(risk_level, "주의")
 
 # RAG 모듈 임포트 (lazy loading)
 _rag_initialized = False
@@ -41,20 +98,39 @@ async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 class ViolationResult:
     """위반 분석 결과"""
     def __init__(self):
-        self.violations: List[Dict] = []
-        self.total_score: int = 0
-        self.risk_level: str = "LOW"
+        # 기존 필드
+        self.violations: List[Dict] = []  # 키워드 위반
+        self.risk_score: int = 0  # 위험점수 (0-100)
+        self.risk_level: str = "SAFE"  # 위험도 (위험점수 기반 자동 계산)
         self.summary: str = ""
-        self.ai_analysis: Optional[str] = None
+        self.ai_analysis: Optional[str] = None  # 1차 AI 분석 텍스트 (상세용)
+
+        # 새로 추가
+        self.ai_violations: List[Dict] = []  # AI가 발견한 위반 목록
+        self.judgment: str = "통과"  # 판정 (위험도 기반 자동 계산)
+        self.keyword_risk_score: int = 0  # 키워드만의 위험점수 (참고용)
+
+    # 하위 호환성을 위한 total_score 프로퍼티
+    @property
+    def total_score(self) -> int:
+        return self.risk_score
+
+    @total_score.setter
+    def total_score(self, value: int):
+        self.risk_score = value
 
     def to_dict(self) -> Dict:
         return {
             "violations": self.violations,
-            "total_score": self.total_score,
+            "risk_score": self.risk_score,
+            "total_score": self.risk_score,  # 하위 호환성
             "risk_level": self.risk_level,
+            "judgment": self.judgment,
             "summary": self.summary,
             "ai_analysis": self.ai_analysis,
-            "violation_count": len(self.violations)
+            "ai_violations": self.ai_violations,
+            "keyword_risk_score": self.keyword_risk_score,
+            "violation_count": len(self.violations) + len(self.ai_violations)
         }
 
 
@@ -345,9 +421,126 @@ async def analyze_with_ai_async(
         return f"AI 분석 중 오류 발생: {str(e)}"
 
 
+# ============================================
+# 2차 LLM 판정 추출 (위험점수 기반)
+# ============================================
+
+def parse_judgment_json(response_text: str) -> Optional[Dict]:
+    """
+    LLM 응답에서 JSON 블록 추출 및 파싱
+
+    Args:
+        response_text: LLM 응답 텍스트
+
+    Returns:
+        파싱된 딕셔너리 또는 None
+    """
+    # ```json ... ``` 블록 추출
+    pattern = r'```json\s*(.*?)\s*```'
+    match = re.search(pattern, response_text, re.DOTALL)
+
+    if not match:
+        # JSON 블록이 없으면 전체 텍스트에서 JSON 찾기 시도
+        pattern = r'\{[^{}]*"risk_score"[^{}]*\}'
+        match = re.search(pattern, response_text, re.DOTALL)
+        if match:
+            json_str = match.group(0)
+        else:
+            return None
+    else:
+        json_str = match.group(1)
+
+    try:
+        data = json.loads(json_str)
+        # 필수 필드 검증
+        if "risk_score" in data:
+            return data
+    except json.JSONDecodeError:
+        pass
+
+    return None
+
+
+async def extract_final_judgment(
+    ai_analysis_text: str,
+    keyword_violations: List[Dict],
+    keyword_risk_score: int
+) -> Optional[Dict]:
+    """
+    1차 AI 분석 결과에서 최종 판정 추출 (2차 LLM 호출)
+
+    Args:
+        ai_analysis_text: 1차 AI 분석 결과 (자유 형식)
+        keyword_violations: 키워드 분석에서 발견된 위반 목록
+        keyword_risk_score: 키워드 분석 위험점수
+
+    Returns:
+        {
+            "risk_score": 0-100,
+            "violations": [...],
+            "summary": "한 줄 요약"
+        }
+    """
+    prompt = f"""다음은 의료광고에 대한 AI 분석 결과입니다. 이 분석을 바탕으로 위험점수와 위반사항을 JSON 형식으로 추출하세요.
+
+## AI 분석 결과
+{ai_analysis_text}
+
+## 키워드 분석 결과
+- 발견된 위반 키워드: {len(keyword_violations)}건
+- 키워드 위험점수: {keyword_risk_score}점
+
+## 요청사항
+1. 먼저 이 광고가 **의료광고인지** 판단하세요.
+   - 의료기관, 의료행위, 의료기기, 의약품 등 의료 관련 내용이 포함되어야 의료광고입니다.
+   - 의료 관련 문구가 없으면 의료광고가 아닙니다.
+
+2. 의료광고인 경우 **위험점수(0-100점)**를 산정하세요.
+3. 의료광고가 아닌 경우 **위험점수를 -1**로 설정하세요.
+
+반드시 다음 JSON 형식으로만 응답하세요:
+
+```json
+{{
+  "is_medical_ad": true|false,
+  "risk_score": -1 또는 0-100,
+  "violations": [
+    {{"type": "위반유형", "description": "설명", "severity": "HIGH|MEDIUM|LOW"}}
+  ],
+  "summary": "한 줄 요약"
+}}
+```
+
+위험점수 산정 기준:
+- -1점: 의료광고 아님 (불필요)
+- 0-10점: 위반 없음, 안전 (통과)
+- 11-30점: 경미한 위반, 주의 필요 (주의)
+- 31-60점: 중간 수준 위반, 수정 필요 (수정제안)
+- 61-80점: 심각한 위반, 반드시 수정 (수정권고)
+- 81-100점: 매우 심각한 위반, 게재 불가 (게재불가)
+
+※ 위험도와 판정은 위험점수 기반으로 시스템이 자동 계산합니다.
+"""
+
+    try:
+        response = await async_client.responses.create(
+            model="gpt-4.1-mini",  # 간단한 추출 작업이므로 빠른 모델 사용
+            instructions="JSON 형식으로만 응답하세요. 다른 텍스트 없이 JSON만 출력합니다.",
+            input=[{"role": "user", "content": prompt}],
+            max_output_tokens=500
+        )
+
+        response_text = response.output_text or ""
+        return parse_judgment_json(response_text)
+
+    except Exception as e:
+        print(f"[2차 LLM] 판정 추출 실패: {e}")
+        return None
+
+
 async def analyze_complete_async(text: str, use_ai: bool = True, use_rag: bool = True) -> ViolationResult:
     """
-    비동기 완전한 광고 분석 (키워드 + RAG/AI 병렬 처리)
+    비동기 완전한 광고 분석 (3단계: 키워드 → 1차 AI → 2차 LLM 판정)
 
     Args:
         text: 분석할 텍스트
@@ -357,26 +550,62 @@ async def analyze_complete_async(text: str, use_ai: bool = True, use_rag: bool =
     Returns:
         ViolationResult: 종합 분석 결과
     """
-    # 1. 키워드 분석 (CPU-bound, 빠름)
+    # ============================================
+    # 1단계: 키워드 분석 (CPU-bound, 빠름)
+    # ============================================
     result = analyze_keywords(text)
+    result.keyword_risk_score = result.risk_score  # 키워드 점수 백업
 
-    # 2. AI 분석 (옵션)
+    # ============================================
+    # 2단계: 1차 AI 심층분석 (자유 형식)
+    # ============================================
     if use_ai and os.getenv("OPENAI_API_KEY"):
         try:
             if use_rag:
-                # RAG 검색과 AI 분석을 병렬로 실행
-                rag_context, _ = await asyncio.gather(
-                    _get_rag_context_async(text),
-                    asyncio.sleep(0)  # placeholder for parallel start
-                )
+                # RAG 검색
+                rag_context = await _get_rag_context_async(text)
                 # RAG 컨텍스트를 미리 제공하여 AI 분석
-                result.ai_analysis = await analyze_with_ai_async(
+                ai_analysis_text = await analyze_with_ai_async(
                     text, result, use_rag=True, rag_context=rag_context
                 )
             else:
-                result.ai_analysis = await analyze_with_ai_async(text, result, use_rag=False)
+                ai_analysis_text = await analyze_with_ai_async(text, result, use_rag=False)
+
+            result.ai_analysis = ai_analysis_text  # 상세 표시용 유지
+
+            # ============================================
+            # 3단계: 2차 LLM 위험점수 추출 (JSON)
+            # ============================================
+            final_judgment = await extract_final_judgment(
+                ai_analysis_text,
+                result.violations,
+                result.keyword_risk_score
+            )
+
+            # 최종 결과 통합
+            if final_judgment:
+                # 위험점수 설정 (2차 LLM 결과)
+                result.risk_score = int(final_judgment.get("risk_score", result.keyword_risk_score))
+
+                # 위험도 자동 계산 (위험점수 기반)
+                result.risk_level = calculate_risk_level(result.risk_score)
+
+                # 판정 자동 계산 (위험도 기반)
+                result.judgment = calculate_judgment(result.risk_level)
+
+                # AI 위반 사항
+                result.ai_violations = final_judgment.get("violations", [])
+
+                # 요약 업데이트
+                if final_judgment.get("summary"):
+                    result.summary = final_judgment["summary"]
+            else:
+                # 2차 LLM 실패 시 키워드 결과 유지
+                print("[분석] 2차 LLM 판정 추출 실패, 키워드 분석 결과 사용")
+
         except Exception as e:
             result.ai_analysis = f"AI 분석 실패: {str(e)}"
+            print(f"[분석] AI 분석 오류: {e}")
 
     return result
 

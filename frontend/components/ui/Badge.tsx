@@ -8,6 +8,7 @@ interface BadgeProps {
 
 const variantStyles: Record<string, string> = {
   // Risk Levels
+  'N/A': 'bg-gray-100 text-gray-500',
   SAFE: 'bg-green-100 text-green-700',
   LOW: 'bg-blue-100 text-blue-700',
   MEDIUM: 'bg-yellow-100 text-yellow-700',

@@ -220,7 +220,8 @@ export default function ResultsTable({ results, onViewDetail }: ResultsTableProp
                   {!item.success ? (
                     <span className="text-red-500">처리 실패</span>
                   ) : (
-                    getJudgment(item.analysis_result?.risk_level || 'SAFE')
+                    // 백엔드에서 제공하는 judgment 사용, 없으면 폴백
+                    item.analysis_result?.judgment || getJudgment(item.analysis_result?.risk_level || 'SAFE')
                   )}
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-700">
@@ -235,7 +236,7 @@ export default function ResultsTable({ results, onViewDetail }: ResultsTableProp
                 <td className="px-4 py-3 text-sm text-gray-700">
                   {item.success && (
                     <span className="font-medium">
-                      {item.analysis_result?.total_score || 0}점
+                      {item.analysis_result?.risk_score ?? item.analysis_result?.total_score ?? 0}점
                     </span>
                   )}
                 </td>

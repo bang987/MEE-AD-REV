@@ -550,14 +550,7 @@ async def process_single_file_async(
                 "confidence": ocr_result["confidence"],
                 "fields_count": ocr_result["fields_count"]
             },
-            "analysis_result": {
-                "violations": analysis_result.violations,
-                "total_score": analysis_result.total_score,
-                "risk_level": analysis_result.risk_level,
-                "summary": analysis_result.summary,
-                "ai_analysis": analysis_result.ai_analysis,
-                "violation_count": len(analysis_result.violations)
-            },
+            "analysis_result": analysis_result.to_dict(),
             "error": None
         }
 
@@ -829,14 +822,7 @@ async def process_ocr_and_analyze(
                 "fields_count": ocr_result["fields_count"],
                 "processing_time": processing_time
             },
-            analysis_result={
-                "violations": analysis_result.violations,
-                "total_score": analysis_result.total_score,
-                "risk_level": analysis_result.risk_level,
-                "summary": analysis_result.summary,
-                "ai_analysis": analysis_result.ai_analysis,
-                "violation_count": len(analysis_result.violations)
-            },
+            analysis_result=analysis_result.to_dict(),
             filename=file.filename
         )
 
