@@ -208,11 +208,12 @@ async def perform_naver_ocr(image_path: Path) -> dict:
 
         # 비동기 HTTP 요청 (httpx 사용)
         async with httpx.AsyncClient(timeout=30.0) as client:
-            # multipart/form-data 구성
-            files = {
-                "message": ("message", json.dumps(request_json), "application/json"),
-                "file": (image_path.name, image_data, f"image/{image_format}")
-            }
+            # Naver OCR API 형식에 맞춘 multipart/form-data 구성
+            # message 필드는 filename 없이, file 필드는 filename과 함께 전송
+            files = [
+                ("message", (None, json.dumps(request_json), "application/json")),
+                ("file", (image_path.name, image_data, f"image/{image_format}"))
+            ]
 
             response = await client.post(
                 NAVER_OCR_API_URL,
