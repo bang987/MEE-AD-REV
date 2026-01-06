@@ -7,11 +7,11 @@ import Message from '@/components/ui/Message';
 import { getCategory } from '@/components/ui/Badge';
 import UploadCard from '@/components/analysis/UploadCard';
 import AnalysisOptions from '@/components/analysis/AnalysisOptions';
-import ProgressBar from '@/components/analysis/ProgressBar';
+import FileProgressList from '@/components/analysis/FileProgressList';
 import ResultsTable from '@/components/analysis/ResultsTable';
 import DetailModal from '@/components/analysis/DetailModal';
 import { startBatchAnalysis, getBatchStatus, classifyFiles } from '@/lib/api';
-import { OCREngine, BatchFileResult, BatchStatus, FileClassification, JudgmentType, RiskLevel } from '@/types';
+import { OCREngine, BatchFileResult, BatchStatus, FileClassification, FileStatus } from '@/types';
 
 export default function HomePage() {
   // File selection
@@ -25,9 +25,7 @@ export default function HomePage() {
   // Analysis state
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [batchId, setBatchId] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0);
-  const [currentFile, setCurrentFile] = useState('');
-  const [processedCount, setProcessedCount] = useState(0);
+  const [fileStatuses, setFileStatuses] = useState<FileStatus[]>([]);
 
   // Results
   const [results, setResults] = useState<BatchFileResult[]>([]);
@@ -44,7 +42,7 @@ export default function HomePage() {
     setSelectedFiles((prev) => {
       const existingNames = new Set(prev.map((f) => f.name));
       const newFiles = files.filter((f) => !existingNames.has(f.name));
-      return [...prev, ...newFiles].slice(0, 50); // Max 50 files
+      return [...prev, ...newFiles].slice(0, 10); // Max 10 files
     });
   }, []);
 
@@ -60,9 +58,7 @@ export default function HomePage() {
 
     setIsAnalyzing(true);
     setResults([]);
-    setProgress(0);
-    setCurrentFile('');
-    setProcessedCount(0);
+    setFileStatuses([]);
     setMessage(null);
 
     try {
@@ -98,9 +94,10 @@ export default function HomePage() {
       try {
         const status: BatchStatus = await getBatchStatus(id);
 
-        setProgress(status.progress_percent);
-        setCurrentFile(status.current_phase === 'analyzing' ? `처리 중...` : '업로드 중...');
-        setProcessedCount(status.processed_files);
+        // 파일별 상태 업데이트
+        if (status.file_statuses) {
+          setFileStatuses(status.file_statuses);
+        }
 
         if (status.status === 'completed' || status.status === 'failed') {
           if (pollIntervalRef.current) {
@@ -145,9 +142,7 @@ export default function HomePage() {
     setIsAnalyzing(false);
     setBatchId(null);
     setLastBatchId(null);
-    setProgress(0);
-    setCurrentFile('');
-    setProcessedCount(0);
+    setFileStatuses([]);
     setResults([]);
     setMessage(null);
   };
@@ -285,14 +280,9 @@ export default function HomePage() {
 
         {/* Right Column: Progress & Results */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Progress Bar */}
-          {isAnalyzing && (
-            <ProgressBar
-              progress={progress}
-              currentFile={currentFile}
-              processedCount={processedCount}
-              totalCount={selectedFiles.length}
-            />
+          {/* File Progress List */}
+          {isAnalyzing && fileStatuses.length > 0 && (
+            <FileProgressList fileStatuses={fileStatuses} />
           )}
 
           {/* Results Table */}

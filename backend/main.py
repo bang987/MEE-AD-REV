@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 import asyncio
 import uuid
 from enum import Enum
-from ad_analyzer import analyze_complete
+from ad_analyzer import analyze_complete, analyze_complete_async
 from medical_keywords import keyword_db
 from paddle_ocr import perform_paddle_ocr
 from rag.vector_store import index_single_file, remove_file_from_index, get_vector_store
@@ -36,25 +36,14 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS 설정 - 허용된 도메인만
-ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:5173",
-    os.getenv("FRONTEND_URL", "http://192.168.0.2:5173"),
-]
-# 환경변수로 추가 도메인 허용
-additional_origins = os.getenv("ADDITIONAL_CORS_ORIGINS")
-if additional_origins:
-    ALLOWED_ORIGINS.extend(additional_origins.split(","))
-
+# CORS 설정 - 모든 origin 허용 (개발 환경)
+# 프로덕션에서는 특정 도메인만 허용하도록 변경 필요
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
+    allow_origins=["*"],  # 모든 origin 허용
+    allow_credentials=False,  # credentials와 wildcard는 함께 사용 불가
     allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "X-OCR-SECRET"],
+    allow_headers=["*"],
 )
 
 # Naver OCR API 설정
@@ -361,6 +350,14 @@ class OCRAnalysisResponse(BaseModel):
     filename: Optional[str] = None
 
 
+class FileStatus(BaseModel):
+    """개별 파일 처리 상태"""
+    filename: str
+    status: str  # pending, ocr, analyzing, completed, failed
+    progress: int  # 0-100
+    error: Optional[str] = None
+
+
 class BatchAnalysisStatus(BaseModel):
     batch_id: str
     status: str  # uploading, processing, completed, failed
@@ -373,6 +370,7 @@ class BatchAnalysisStatus(BaseModel):
     estimated_completion: Optional[str] = None
     elapsed_seconds: Optional[float] = 0.0
     current_phase: Optional[str] = "uploading"  # uploading, analyzing
+    file_statuses: List[FileStatus] = []  # 파일별 상태
 
 
 class FileClassification(BaseModel):
@@ -426,6 +424,40 @@ def cleanup_old_batches():
     return len(to_delete)
 
 
+def update_file_status(batch_id: str, filename: str, status: str, progress: int, error: str = None):
+    """
+    개별 파일의 처리 상태 업데이트
+
+    Args:
+        batch_id: 배치 ID
+        filename: 파일명
+        status: 상태 (pending, ocr, analyzing, completed, failed)
+        progress: 진행률 (0-100)
+        error: 에러 메시지 (optional)
+    """
+    if batch_id not in batch_status_store:
+        return
+
+    batch = batch_status_store[batch_id]
+
+    # 해당 파일의 상태 찾기 또는 추가
+    for file_status in batch.file_statuses:
+        if file_status.filename == filename:
+            file_status.status = status
+            file_status.progress = progress
+            if error:
+                file_status.error = error
+            return
+
+    # 파일이 목록에 없으면 추가
+    batch.file_statuses.append(FileStatus(
+        filename=filename,
+        status=status,
+        progress=progress,
+        error=error
+    ))
+
+
 # 백그라운드 클린업 태스크
 _cleanup_task: Optional[asyncio.Task] = None
 
@@ -463,10 +495,11 @@ async def process_single_file_async(
     filename: str,
     use_ai: bool,
     ocr_engine: OCREngine = OCREngine.NAVER,
-    use_rag: bool = True
+    use_rag: bool = True,
+    batch_id: str = None
 ) -> Dict[str, Any]:
     """
-    단일 파일 비동기 OCR + 분석
+    단일 파일 비동기 OCR + 분석 (파일별 상태 업데이트 포함)
 
     Args:
         file_path: 파일 경로
@@ -474,15 +507,21 @@ async def process_single_file_async(
         use_ai: AI 분석 사용 여부
         ocr_engine: OCR 엔진 선택
         use_rag: RAG (법규 검색) 사용 여부
+        batch_id: 배치 ID (상태 업데이트용)
 
     Returns:
         dict: 분석 결과
     """
     try:
-        # OCR 처리
+        # OCR 처리 시작
+        if batch_id:
+            update_file_status(batch_id, filename, "ocr", 20)
+
         ocr_result = await perform_ocr(file_path, engine=ocr_engine)
 
         if not ocr_result["success"]:
+            if batch_id:
+                update_file_status(batch_id, filename, "failed", 0, ocr_result.get("error", "OCR 실패"))
             return {
                 "filename": filename,
                 "success": False,
@@ -491,9 +530,17 @@ async def process_single_file_async(
                 "analysis_result": None
             }
 
-        # 광고 분석
+        # 광고 분석 시작
+        if batch_id:
+            update_file_status(batch_id, filename, "analyzing", 50)
+
         extracted_text = ocr_result["text"]
-        analysis_result = analyze_complete(extracted_text, use_ai=use_ai, use_rag=use_rag)
+        # 비동기 분석 함수 사용
+        analysis_result = await analyze_complete_async(extracted_text, use_ai=use_ai, use_rag=use_rag)
+
+        # 완료
+        if batch_id:
+            update_file_status(batch_id, filename, "completed", 100)
 
         return {
             "filename": filename,
@@ -515,6 +562,8 @@ async def process_single_file_async(
         }
 
     except Exception as e:
+        if batch_id:
+            update_file_status(batch_id, filename, "failed", 0, str(e))
         return {
             "filename": filename,
             "success": False,
@@ -530,7 +579,7 @@ async def batch_analyze_files(
     use_ai: bool,
     ocr_engine: OCREngine = OCREngine.NAVER,
     use_rag: bool = True,
-    max_concurrent: int = 5
+    max_concurrent: int = 10  # Naver OCR는 5개 제한 있음 (Paddle은 제한 없음)
 ):
     """
     배치 파일 병렬 분석
@@ -545,15 +594,22 @@ async def batch_analyze_files(
     """
     semaphore = asyncio.Semaphore(max_concurrent)
 
-    # 시작 시간 기록
+    # 시작 시간 기록 및 파일별 상태 초기화
     start_time = datetime.now()
     if batch_id in batch_status_store:
         batch_status_store[batch_id].start_time = start_time.isoformat()
         batch_status_store[batch_id].current_phase = "analyzing"
+        # 파일별 상태 초기화 (모두 pending)
+        batch_status_store[batch_id].file_statuses = [
+            FileStatus(filename=name, status="pending", progress=0)
+            for _, name in file_paths
+        ]
 
     async def process_with_semaphore(file_path: Path, filename: str):
         async with semaphore:
-            result = await process_single_file_async(file_path, filename, use_ai, ocr_engine, use_rag)
+            result = await process_single_file_async(
+                file_path, filename, use_ai, ocr_engine, use_rag, batch_id
+            )
 
             # 진행률 업데이트
             if batch_id in batch_status_store:
@@ -808,14 +864,14 @@ async def batch_upload_analyze(
     다중 파일 업로드 및 배치 분석
 
     Args:
-        files: 업로드된 이미지 파일 리스트 (최대 50개)
+        files: 업로드된 이미지 파일 리스트 (최대 10개)
         use_ai: AI 분석 사용 여부 ("true"/"false")
         use_rag: RAG (법규 검색) 사용 여부 ("true"/"false")
         ocr_engine: OCR 엔진 선택 (naver 또는 paddle)
         background_tasks: 백그라운드 작업
 
     Returns:
-        dict: batch_id 및 초기 상태
+        dict: batch_id 및 초기 상태 (file_statuses 포함)
     """
     # 문자열을 boolean으로 변환
     use_ai_bool = use_ai.lower() == "true"
@@ -825,10 +881,10 @@ async def batch_upload_analyze(
     engine = OCREngine(ocr_engine) if ocr_engine in ["naver", "paddle"] else OCREngine.NAVER
 
     # 파일 수 제한
-    if len(files) > 50:
+    if len(files) > 10:
         raise HTTPException(
             status_code=400,
-            detail="한 번에 최대 50개의 파일만 업로드할 수 있습니다."
+            detail="한 번에 최대 10개의 파일만 업로드할 수 있습니다."
         )
 
     if len(files) == 0:

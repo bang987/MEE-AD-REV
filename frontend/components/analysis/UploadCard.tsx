@@ -75,7 +75,7 @@ export default function UploadCard({
           이미지 파일을 드래그하거나 클릭하여 선택
         </p>
         <p className="mt-1 text-xs text-gray-500">
-          JPG, PNG (최대 50개, 파일당 최대 10MB)
+          JPG, PNG (최대 10개, 파일당 최대 10MB)
         </p>
       </div>
 

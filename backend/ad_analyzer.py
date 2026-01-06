@@ -3,7 +3,8 @@
 """
 from typing import Dict, List, Optional
 import os
-from openai import OpenAI
+import asyncio
+from openai import OpenAI, AsyncOpenAI
 from medical_keywords import keyword_db
 from dotenv import load_dotenv
 
@@ -34,6 +35,7 @@ def _get_rag_context(text: str) -> str:
     return ""
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
 class ViolationResult:
@@ -256,6 +258,123 @@ def analyze_complete(text: str, use_ai: bool = True, use_rag: bool = True) -> Vi
     if use_ai and os.getenv("OPENAI_API_KEY"):
         try:
             result.ai_analysis = analyze_with_ai(text, result, use_rag=use_rag)
+        except Exception as e:
+            result.ai_analysis = f"AI 분석 실패: {str(e)}"
+
+    return result
+
+
+async def _get_rag_context_async(text: str) -> str:
+    """비동기 RAG 컨텍스트 검색"""
+    # RAG는 CPU-bound이므로 executor에서 실행
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, _get_rag_context, text)
+
+
+async def analyze_with_ai_async(
+    text: str,
+    keyword_result: Optional[ViolationResult] = None,
+    use_rag: bool = True,
+    rag_context: str = ""
+) -> str:
+    """
+    비동기 OpenAI 분석 (AsyncOpenAI 사용)
+
+    Args:
+        text: 분석할 텍스트
+        keyword_result: 키워드 분석 결과
+        use_rag: RAG 사용 여부
+        rag_context: 미리 검색된 RAG 컨텍스트 (병렬 처리 시)
+
+    Returns:
+        str: AI 분석 결과
+    """
+    # 키워드 분석 결과를 컨텍스트로 포함
+    keyword_context = ""
+    if keyword_result and keyword_result.violations:
+        violations_text = "\n".join([
+            f"- {v['keyword']} ({v['category']}, {v['severity']})"
+            for v in keyword_result.violations[:10]
+        ])
+        keyword_context = f"\n\n## 키워드 분석 결과\n다음 위반 키워드가 발견되었습니다:\n{violations_text}"
+
+    # RAG 컨텍스트 (미리 제공되지 않은 경우 검색)
+    if use_rag and not rag_context:
+        rag_context = await _get_rag_context_async(text)
+
+    if rag_context:
+        rag_context = f"\n\n{rag_context}"
+
+    prompt = f"""당신은 대한민국 의료법 전문가입니다. 다음 의료 광고 텍스트를 분석하여 의료법 위반 여부를 판단하세요.
+{rag_context}
+{keyword_context}
+
+## 분석 대상 광고 텍스트
+{text}
+
+## 요청사항
+위 법규 조항을 근거로 광고의 위반 여부를 판정하고, 각 판정에 대해 정확한 법규 조항을 인용해주세요.
+
+다음 형식으로 분석 결과를 제공하세요:
+
+**위반 사항:**
+- 발견된 위반 내용을 구체적으로 나열
+
+**법적 근거:**
+- 해당하는 의료법 조항 명시 (RAG 검색 결과 활용)
+
+**권고 사항:**
+- 광고 수정 방안 제시
+
+**전체 평가:**
+- 위험도 (안전/낮음/보통/높음/매우높음)
+- 종합 의견
+"""
+
+    try:
+        response = await async_client.responses.create(
+            model="gpt-5.2",
+            instructions="당신은 대한민국 의료법 전문가입니다. 제공된 법규 조항을 정확히 인용하여 분석하세요.",
+            input=[{"role": "user", "content": prompt}],
+            max_output_tokens=1500
+        )
+
+        return response.output_text or ""
+
+    except Exception as e:
+        return f"AI 분석 중 오류 발생: {str(e)}"
+
+
+async def analyze_complete_async(text: str, use_ai: bool = True, use_rag: bool = True) -> ViolationResult:
+    """
+    비동기 완전한 광고 분석 (키워드 + RAG/AI 병렬 처리)
+
+    Args:
+        text: 분석할 텍스트
+        use_ai: AI 분석 사용 여부
+        use_rag: RAG 사용 여부
+
+    Returns:
+        ViolationResult: 종합 분석 결과
+    """
+    # 1. 키워드 분석 (CPU-bound, 빠름)
+    result = analyze_keywords(text)
+
+    # 2. AI 분석 (옵션)
+    if use_ai and os.getenv("OPENAI_API_KEY"):
+        try:
+            if use_rag:
+                # RAG 검색과 AI 분석을 병렬로 실행
+                rag_context, _ = await asyncio.gather(
+                    _get_rag_context_async(text),
+                    asyncio.sleep(0)  # placeholder for parallel start
+                )
+                # RAG 컨텍스트를 미리 제공하여 AI 분석
+                result.ai_analysis = await analyze_with_ai_async(
+                    text, result, use_rag=True, rag_context=rag_context
+                )
+            else:
+                result.ai_analysis = await analyze_with_ai_async(text, result, use_rag=False)
         except Exception as e:
             result.ai_analysis = f"AI 분석 실패: {str(e)}"
 

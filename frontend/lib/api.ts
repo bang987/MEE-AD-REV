@@ -8,7 +8,16 @@ import type {
   OCREngine,
 } from '@/types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.0.2:8000';
+// 브라우저에서 접근한 호스트를 기반으로 API URL 결정
+function getApiBaseUrl(): string {
+  if (typeof window !== 'undefined') {
+    // 클라이언트: 현재 접속한 호스트의 8000 포트 사용
+    const hostname = window.location.hostname;
+    return `http://${hostname}:8000`;
+  }
+  // 서버사이드: 환경변수 또는 기본값
+  return process.env.NEXT_PUBLIC_API_URL || 'http://192.168.0.2:8000';
+}
 
 // Batch Analysis APIs
 export async function startBatchAnalysis(
@@ -23,7 +32,7 @@ export async function startBatchAnalysis(
   formData.append('use_ai', useAi ? 'true' : 'false');
   formData.append('use_rag', useRag ? 'true' : 'false');
 
-  const response = await fetch(`${API_BASE_URL}/api/batch-upload-analyze`, {
+  const response = await fetch(`${getApiBaseUrl()}/api/batch-upload-analyze`, {
     method: 'POST',
     body: formData,
   });
@@ -36,7 +45,7 @@ export async function startBatchAnalysis(
 }
 
 export async function getBatchStatus(batchId: string): Promise<BatchStatus> {
-  const response = await fetch(`${API_BASE_URL}/api/batch-status/${batchId}`);
+  const response = await fetch(`${getApiBaseUrl()}/api/batch-status/${batchId}`);
 
   if (!response.ok) {
     throw new Error('상태 조회 실패');
@@ -49,7 +58,7 @@ export async function classifyFiles(
   batchId: string,
   classifications: FileClassification[]
 ): Promise<ClassifyResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/classify-files`, {
+  const response = await fetch(`${getApiBaseUrl()}/api/classify-files`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ batch_id: batchId, classifications }),
@@ -64,7 +73,7 @@ export async function classifyFiles(
 
 // Admin Document APIs
 export async function getDocuments(): Promise<DocumentListResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/admin/documents`);
+  const response = await fetch(`${getApiBaseUrl()}/api/admin/documents`);
 
   if (!response.ok) {
     throw new Error('문서 목록 조회 실패');
@@ -77,7 +86,7 @@ export async function uploadDocuments(files: File[]): Promise<DocumentUploadResp
   const formData = new FormData();
   files.forEach((file) => formData.append('files', file));
 
-  const response = await fetch(`${API_BASE_URL}/api/admin/documents`, {
+  const response = await fetch(`${getApiBaseUrl()}/api/admin/documents`, {
     method: 'POST',
     body: formData,
   });
@@ -91,7 +100,7 @@ export async function uploadDocuments(files: File[]): Promise<DocumentUploadResp
 
 export async function deleteDocument(filename: string): Promise<DocumentDeleteResponse> {
   const response = await fetch(
-    `${API_BASE_URL}/api/admin/documents/${encodeURIComponent(filename)}`,
+    `${getApiBaseUrl()}/api/admin/documents/${encodeURIComponent(filename)}`,
     { method: 'DELETE' }
   );
 

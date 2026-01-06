@@ -39,6 +39,16 @@ export interface BatchFileResult {
   error: string | null;
 }
 
+// 개별 파일 처리 상태
+export type FileStatusType = 'pending' | 'ocr' | 'analyzing' | 'completed' | 'failed';
+
+export interface FileStatus {
+  filename: string;
+  status: FileStatusType;
+  progress: number;
+  error?: string;
+}
+
 export interface BatchStatus {
   batch_id: string;
   status: 'uploading' | 'processing' | 'completed' | 'failed';
@@ -51,6 +61,7 @@ export interface BatchStatus {
   estimated_completion?: string;
   elapsed_seconds?: number;
   current_phase?: 'uploading' | 'analyzing';
+  file_statuses?: FileStatus[];  // 파일별 상태
 }
 
 // Admin Document Types
