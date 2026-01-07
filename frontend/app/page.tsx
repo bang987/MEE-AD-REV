@@ -340,6 +340,7 @@ export default function HomePage() {
       {selectedResult && (
         <DetailModal
           result={selectedResult}
+          batchId={lastBatchId}
           onClose={() => setSelectedResult(null)}
         />
       )}

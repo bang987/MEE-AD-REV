@@ -111,6 +111,11 @@ export async function deleteDocument(filename: string): Promise<DocumentDeleteRe
   return response.json();
 }
 
+// Batch Image URL
+export function getBatchImageUrl(batchId: string, filename: string): string {
+  return `${getApiBaseUrl()}/api/batch-image/${encodeURIComponent(batchId)}/${encodeURIComponent(filename)}`;
+}
+
 // Utility functions
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;

@@ -4,6 +4,7 @@ FastAPI 백엔드 메인 애플리케이션
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import os
@@ -990,6 +991,42 @@ async def get_batch_status(batch_id: str):
     raise HTTPException(
         status_code=404, detail=f"배치 ID '{batch_id}'를 찾을 수 없습니다."
     )
+
+
+@app.get("/api/batch-image/{batch_id}/{filename}")
+async def get_batch_image(batch_id: str, filename: str):
+    """
+    배치 분석 중인 이미지 파일 제공
+
+    Args:
+        batch_id: 배치 ID
+        filename: 파일명
+
+    Returns:
+        FileResponse: 이미지 파일
+    """
+    # 보안: 경로 traversal 방지
+    safe_filename = Path(filename).name
+    safe_batch_id = Path(batch_id).name
+
+    # 임시 폴더에서 찾기
+    temp_path = Path("uploads/temp") / safe_batch_id / safe_filename
+    if temp_path.exists():
+        return FileResponse(
+            temp_path,
+            media_type=f"image/{temp_path.suffix.lower().replace('.', '')}",
+        )
+
+    # 분류된 폴더에서 찾기
+    for folder in ["approved", "rejected", "review"]:
+        folder_path = Path("uploads") / folder / safe_filename
+        if folder_path.exists():
+            return FileResponse(
+                folder_path,
+                media_type=f"image/{folder_path.suffix.lower().replace('.', '')}",
+            )
+
+    raise HTTPException(status_code=404, detail=f"이미지를 찾을 수 없습니다: {filename}")
 
 
 @app.post("/api/classify-files")
