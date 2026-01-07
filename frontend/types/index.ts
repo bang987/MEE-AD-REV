@@ -3,6 +3,12 @@ export type RiskLevel = 'N/A' | 'SAFE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type JudgmentType = 'approved' | 'rejected' | 'review';
 export type OCREngine = 'naver' | 'paddle';
 
+// OCR 엔진별 최대 파일 개수 제한
+export const OCR_FILE_LIMITS: Record<OCREngine, number> = {
+  naver: 5,
+  paddle: 50,
+};
+
 export interface Violation {
   keyword: string;
   category: string;
@@ -55,7 +61,7 @@ export interface BatchFileResult {
 }
 
 // 개별 파일 처리 상태
-export type FileStatusType = 'pending' | 'ocr' | 'analyzing' | 'completed' | 'failed';
+export type FileStatusType = 'uploading' | 'pending' | 'ocr' | 'analyzing' | 'completed' | 'failed';
 
 export interface FileStatus {
   filename: string;

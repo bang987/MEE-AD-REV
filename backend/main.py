@@ -30,6 +30,13 @@ class OCREngine(str, Enum):
     PADDLE = "paddle"
 
 
+# OCR 엔진별 최대 파일 개수 제한
+OCR_FILE_LIMITS = {
+    OCREngine.NAVER: 5,
+    OCREngine.PADDLE: 50,
+}
+
+
 # .env 파일 로드
 load_dotenv()
 
@@ -570,7 +577,6 @@ async def batch_analyze_files(
     use_ai: bool,
     ocr_engine: OCREngine = OCREngine.NAVER,
     use_rag: bool = True,
-    max_concurrent: int = 10,  # Naver OCR는 5개 제한 있음 (Paddle은 제한 없음)
 ):
     """
     배치 파일 병렬 분석
@@ -581,8 +587,9 @@ async def batch_analyze_files(
         use_ai: AI 분석 사용 여부
         ocr_engine: OCR 엔진 선택
         use_rag: RAG (법규 검색) 사용 여부
-        max_concurrent: 최대 동시 처리 수
     """
+    # OCR 엔진별 최대 동시 처리 수 (Naver: 5, Paddle: 50)
+    max_concurrent = OCR_FILE_LIMITS[ocr_engine]
     semaphore = asyncio.Semaphore(max_concurrent)
 
     # 시작 시간 기록 및 파일별 상태 초기화
@@ -886,10 +893,12 @@ async def batch_upload_analyze(
         OCREngine(ocr_engine) if ocr_engine in ["naver", "paddle"] else OCREngine.NAVER
     )
 
-    # 파일 수 제한
-    if len(files) > 10:
+    # 엔진별 파일 수 제한
+    file_limit = OCR_FILE_LIMITS[engine]
+    if len(files) > file_limit:
         raise HTTPException(
-            status_code=400, detail="한 번에 최대 10개의 파일만 업로드할 수 있습니다."
+            status_code=400,
+            detail=f"한 번에 최대 {file_limit}개의 파일만 업로드할 수 있습니다. (선택된 OCR: {engine.value})",
         )
 
     if len(files) == 0:

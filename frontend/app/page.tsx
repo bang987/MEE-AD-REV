@@ -1,17 +1,16 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Play, RotateCcw, FolderOpen } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Message from '@/components/ui/Message';
 import { getCategory } from '@/components/ui/Badge';
-import UploadCard from '@/components/analysis/UploadCard';
-import AnalysisOptions from '@/components/analysis/AnalysisOptions';
+import AnalysisCard from '@/components/analysis/AnalysisCard';
 import FileProgressList from '@/components/analysis/FileProgressList';
 import ResultsTable from '@/components/analysis/ResultsTable';
 import DetailModal from '@/components/analysis/DetailModal';
 import { startBatchAnalysis, getBatchStatus, classifyFiles } from '@/lib/api';
-import { OCREngine, BatchFileResult, BatchStatus, FileClassification, FileStatus } from '@/types';
+import { OCREngine, OCR_FILE_LIMITS, BatchFileResult, BatchStatus, FileClassification, FileStatus } from '@/types';
 
 export default function HomePage() {
   // File selection
@@ -38,16 +37,24 @@ export default function HomePage() {
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // 파생 상태: OCR 엔진별 파일 제한
+  const fileLimit = useMemo(() => OCR_FILE_LIMITS[ocrEngine], [ocrEngine]);
+  const isOverLimit = useMemo(() => selectedFiles.length > fileLimit, [selectedFiles.length, fileLimit]);
+
   const handleFilesSelected = useCallback((files: File[]) => {
     setSelectedFiles((prev) => {
       const existingNames = new Set(prev.map((f) => f.name));
       const newFiles = files.filter((f) => !existingNames.has(f.name));
-      return [...prev, ...newFiles].slice(0, 10); // Max 10 files
+      return [...prev, ...newFiles]; // 제한 없이 추가 (초과 시 경고만 표시)
     });
   }, []);
 
   const handleClearFiles = useCallback(() => {
     setSelectedFiles([]);
+  }, []);
+
+  const handleRemoveFile = useCallback((index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
   const handleStartAnalysis = async () => {
@@ -58,8 +65,16 @@ export default function HomePage() {
 
     setIsAnalyzing(true);
     setResults([]);
-    setFileStatuses([]);
     setMessage(null);
+
+    // 즉시 업로드 중 상태 표시 (사용자 피드백)
+    setFileStatuses(
+      selectedFiles.map((file) => ({
+        filename: file.name,
+        status: 'uploading' as const,
+        progress: 0,
+      }))
+    );
 
     try {
       const response = await startBatchAnalysis(
@@ -239,14 +254,11 @@ export default function HomePage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Upload & Options */}
         <div className="lg:col-span-1 space-y-6">
-          <UploadCard
-            onFilesSelected={handleFilesSelected}
+          <AnalysisCard
             selectedFiles={selectedFiles}
-            onClear={handleClearFiles}
-            disabled={isAnalyzing}
-          />
-
-          <AnalysisOptions
+            onFilesSelected={handleFilesSelected}
+            onClearFiles={handleClearFiles}
+            onRemoveFile={handleRemoveFile}
             ocrEngine={ocrEngine}
             setOcrEngine={setOcrEngine}
             useAiAnalysis={useAiAnalysis}
@@ -261,7 +273,7 @@ export default function HomePage() {
             <Button
               variant="primary"
               onClick={handleStartAnalysis}
-              disabled={isAnalyzing || selectedFiles.length === 0}
+              disabled={isAnalyzing || selectedFiles.length === 0 || isOverLimit}
               isLoading={isAnalyzing}
               className="flex-1"
             >
