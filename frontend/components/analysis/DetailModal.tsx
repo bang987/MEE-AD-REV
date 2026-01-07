@@ -202,9 +202,20 @@ export default function DetailModal({ result, batchId, onClose }: DetailModalPro
                 {/* OCR Result */}
                 {ocr && (
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3">
-                      OCR 추출 텍스트
-                    </h3>
+                    <div className="flex items-center gap-2 mb-3">
+                      <h3 className="text-sm font-semibold text-gray-900">
+                        OCR 추출 텍스트
+                      </h3>
+                      {ocr.engine && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${
+                          ocr.engine === 'naver'
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {ocr.engine === 'naver' ? 'Naver Clova' : 'PaddleOCR'}
+                        </span>
+                      )}
+                    </div>
                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                       <p className="text-sm text-gray-700 whitespace-pre-wrap max-h-48 overflow-y-auto">
                         {ocr.text || '추출된 텍스트 없음'}

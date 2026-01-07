@@ -30,6 +30,7 @@ export interface OCRResult {
   text: string;
   confidence: number;
   fields_count?: number;
+  engine?: OCREngine;
 }
 
 export interface AnalysisResult {

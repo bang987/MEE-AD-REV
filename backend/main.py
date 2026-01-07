@@ -546,6 +546,7 @@ async def process_single_file_async(
                 "text": ocr_result["text"],
                 "confidence": ocr_result["confidence"],
                 "fields_count": ocr_result["fields_count"],
+                "engine": ocr_engine.value,
             },
             "analysis_result": analysis_result.to_dict(),
             "error": None,
