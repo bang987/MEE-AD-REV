@@ -1505,6 +1505,207 @@ async def delete_analysis_history(request: DeleteHistoryRequest):
     }
 
 
+# ============================================================
+# 관리자 API - 통계
+# ============================================================
+
+
+@app.get("/api/admin/statistics")
+async def get_statistics(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+):
+    """
+    분석 통계 조회
+
+    Args:
+        start_date: 시작 날짜 (ISO format: 2026-01-01)
+        end_date: 종료 날짜 (ISO format: 2026-01-08)
+
+    Returns:
+        dict: 통계 데이터
+    """
+    batch_results_dir = Path("uploads/batch_results")
+
+    # 기본 응답 구조
+    empty_response = {
+        "success": True,
+        "period": {"start_date": start_date or "", "end_date": end_date or ""},
+        "summary": {
+            "total_analyses": 0,
+            "total_with_violations": 0,
+            "violation_rate": 0.0,
+            "average_risk_score": 0.0,
+            "success_rate": 0.0,
+        },
+        "risk_distribution": [],
+        "judgment_distribution": [],
+        "top_violation_categories": [],
+        "top_violation_keywords": [],
+    }
+
+    if not batch_results_dir.exists():
+        return empty_response
+
+    # 날짜 필터 파싱
+    filter_start = None
+    filter_end = None
+    if start_date:
+        try:
+            filter_start = datetime.fromisoformat(start_date)
+        except ValueError:
+            pass
+    if end_date:
+        try:
+            filter_end = datetime.fromisoformat(end_date + "T23:59:59")
+        except ValueError:
+            pass
+
+    # 모든 배치 JSON 파일 읽기
+    all_items: List[Dict[str, Any]] = []
+    all_violations: List[Dict[str, Any]] = []
+
+    for json_file in batch_results_dir.glob("batch_*.json"):
+        try:
+            with open(json_file, "r", encoding="utf-8") as f:
+                batch_data = json.load(f)
+                completed_at_str = batch_data.get("completed_at", "")
+
+                # 날짜 필터 적용
+                if completed_at_str and (filter_start or filter_end):
+                    try:
+                        completed_at = datetime.fromisoformat(completed_at_str)
+                        if filter_start and completed_at < filter_start:
+                            continue
+                        if filter_end and completed_at > filter_end:
+                            continue
+                    except ValueError:
+                        pass
+
+                for result in batch_data.get("results", []):
+                    analysis = result.get("analysis_result") or {}
+                    item = {
+                        "risk_level": analysis.get("risk_level", "N/A"),
+                        "judgment": analysis.get("judgment", ""),
+                        "violation_count": analysis.get("violation_count", 0),
+                        "total_score": analysis.get("total_score", 0),
+                        "success": result.get("success", False),
+                    }
+                    all_items.append(item)
+
+                    # 위반 정보 수집
+                    for violation in analysis.get("violations", []):
+                        all_violations.append({
+                            "keyword": violation.get("keyword", ""),
+                            "category": violation.get("category", ""),
+                            "severity": violation.get("severity", "MEDIUM"),
+                            "count": violation.get("count", 1),
+                        })
+
+        except (json.JSONDecodeError, IOError):
+            continue
+
+    if not all_items:
+        return empty_response
+
+    # 요약 통계 계산
+    total_analyses = len(all_items)
+    successful_items = [item for item in all_items if item["success"]]
+    total_with_violations = sum(1 for item in all_items if item["violation_count"] > 0)
+    total_scores = [item["total_score"] for item in all_items if item["total_score"] >= 0]
+
+    summary = {
+        "total_analyses": total_analyses,
+        "total_with_violations": total_with_violations,
+        "violation_rate": round(total_with_violations / total_analyses * 100, 1) if total_analyses > 0 else 0.0,
+        "average_risk_score": round(sum(total_scores) / len(total_scores), 1) if total_scores else 0.0,
+        "success_rate": round(len(successful_items) / total_analyses * 100, 1) if total_analyses > 0 else 0.0,
+    }
+
+    # 위험도별 분포
+    risk_counts: Dict[str, int] = {}
+    for item in all_items:
+        level = item["risk_level"]
+        risk_counts[level] = risk_counts.get(level, 0) + 1
+
+    risk_distribution = []
+    risk_order = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "SAFE", "N/A"]
+    for level in risk_order:
+        count = risk_counts.get(level, 0)
+        if count > 0:
+            risk_distribution.append({
+                "level": level,
+                "count": count,
+                "percentage": round(count / total_analyses * 100, 1),
+            })
+
+    # 판정별 분포
+    judgment_counts: Dict[str, int] = {}
+    for item in all_items:
+        judgment = item["judgment"]
+        if judgment:
+            judgment_counts[judgment] = judgment_counts.get(judgment, 0) + 1
+
+    judgment_distribution = []
+    judgment_order = ["게재불가", "수정권고", "수정제안", "주의", "통과", "불필요"]
+    for judgment in judgment_order:
+        count = judgment_counts.get(judgment, 0)
+        if count > 0:
+            judgment_distribution.append({
+                "judgment": judgment,
+                "count": count,
+                "percentage": round(count / total_analyses * 100, 1),
+            })
+
+    # 위반 카테고리 TOP 5
+    category_counts: Dict[str, int] = {}
+    for v in all_violations:
+        cat = v["category"]
+        if cat:
+            category_counts[cat] = category_counts.get(cat, 0) + v["count"]
+
+    total_violations = sum(category_counts.values())
+    top_categories = sorted(category_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+    top_violation_categories = [
+        {
+            "category": cat,
+            "count": count,
+            "percentage": round(count / total_violations * 100, 1) if total_violations > 0 else 0.0,
+        }
+        for cat, count in top_categories
+    ]
+
+    # 위반 키워드 TOP 10
+    keyword_data: Dict[str, Dict[str, Any]] = {}
+    for v in all_violations:
+        kw = v["keyword"]
+        if kw:
+            if kw not in keyword_data:
+                keyword_data[kw] = {
+                    "keyword": kw,
+                    "category": v["category"],
+                    "severity": v["severity"],
+                    "count": 0,
+                }
+            keyword_data[kw]["count"] += v["count"]
+
+    top_keywords = sorted(keyword_data.values(), key=lambda x: x["count"], reverse=True)[:10]
+
+    # 실제 기간 계산
+    actual_start = start_date or ""
+    actual_end = end_date or datetime.now().strftime("%Y-%m-%d")
+
+    return {
+        "success": True,
+        "period": {"start_date": actual_start, "end_date": actual_end},
+        "summary": summary,
+        "risk_distribution": risk_distribution,
+        "judgment_distribution": judgment_distribution,
+        "top_violation_categories": top_violation_categories,
+        "top_violation_keywords": top_keywords,
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
 

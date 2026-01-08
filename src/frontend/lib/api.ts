@@ -9,6 +9,8 @@ import type {
   OCREngine,
   RiskLevel,
   AnalysisHistoryResponse,
+  StatisticsFilters,
+  StatisticsResponse,
 } from '@/types';
 
 // 브라우저에서 접근한 호스트를 기반으로 API URL 결정
@@ -216,6 +218,47 @@ export async function deleteAnalysisHistory(
 
   if (!response.ok) {
     throw new Error('분석 이력 삭제 실패');
+  }
+
+  return response.json();
+}
+
+// Statistics API
+export async function getStatistics(
+  filters: StatisticsFilters
+): Promise<StatisticsResponse> {
+  const params = new URLSearchParams();
+
+  // 기간 필터 - 프리셋에 따른 날짜 계산
+  const today = new Date();
+  let startDate: Date | null = null;
+
+  switch (filters.dateRange.preset) {
+    case 'today':
+      startDate = today;
+      break;
+    case '7days':
+      startDate = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      break;
+    case '30days':
+      startDate = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+      break;
+    case 'all':
+    default:
+      startDate = null;
+  }
+
+  if (startDate) {
+    params.append('start_date', startDate.toISOString().split('T')[0]);
+    params.append('end_date', new Date().toISOString().split('T')[0]);
+  }
+
+  const response = await fetch(
+    `${getApiBaseUrl()}/api/admin/statistics?${params}`
+  );
+
+  if (!response.ok) {
+    throw new Error('통계 조회 실패');
   }
 
   return response.json();

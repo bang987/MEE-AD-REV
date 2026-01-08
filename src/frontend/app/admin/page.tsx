@@ -1,15 +1,16 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Database, BookOpen, History } from 'lucide-react';
+import { Database, BookOpen, History, BarChart3 } from 'lucide-react';
 import Message from '@/components/ui/Message';
 import DocumentUpload from '@/components/admin/DocumentUpload';
 import DocumentList from '@/components/admin/DocumentList';
 import AnalysisHistoryList from '@/components/admin/AnalysisHistoryList';
+import StatisticsDashboard from '@/components/admin/statistics/StatisticsDashboard';
 import { getDocuments, uploadDocuments, deleteDocument, formatFileSize } from '@/lib/api';
 import { Document } from '@/types';
 
-type TabType = 'documents' | 'history';
+type TabType = 'documents' | 'history' | 'statistics';
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<TabType>('history');
@@ -75,6 +76,7 @@ export default function AdminPage() {
   const tabs = [
     { id: 'history' as const, label: '분석 이력', icon: History },
     { id: 'documents' as const, label: 'RAG 문서 관리', icon: BookOpen },
+    { id: 'statistics' as const, label: '통계', icon: BarChart3 },
   ];
 
   return (
@@ -190,6 +192,8 @@ export default function AdminPage() {
           </div>
         </>
       )}
+
+      {activeTab === 'statistics' && <StatisticsDashboard />}
     </div>
   );
 }

@@ -164,3 +164,55 @@ export interface AnalysisHistoryResponse {
   items: AnalysisHistoryItem[];
   pagination: AnalysisHistoryPagination;
 }
+
+// Statistics Types
+export interface StatisticsFilters {
+  dateRange: {
+    preset: 'today' | '7days' | '30days' | 'all';
+    startDate?: string;
+    endDate?: string;
+  };
+}
+
+export interface StatisticsSummary {
+  total_analyses: number;
+  total_with_violations: number;
+  violation_rate: number;
+  average_risk_score: number;
+  success_rate: number;
+}
+
+export interface RiskDistribution {
+  level: RiskLevel;
+  count: number;
+  percentage: number;
+}
+
+export interface JudgmentDistribution {
+  judgment: Judgment;
+  count: number;
+  percentage: number;
+}
+
+export interface ViolationCategory {
+  category: string;
+  count: number;
+  percentage: number;
+}
+
+export interface ViolationKeyword {
+  keyword: string;
+  category: string;
+  count: number;
+  severity: 'HIGH' | 'MEDIUM' | 'LOW';
+}
+
+export interface StatisticsResponse {
+  success: boolean;
+  period: { start_date: string; end_date: string };
+  summary: StatisticsSummary;
+  risk_distribution: RiskDistribution[];
+  judgment_distribution: JudgmentDistribution[];
+  top_violation_categories: ViolationCategory[];
+  top_violation_keywords: ViolationKeyword[];
+}
