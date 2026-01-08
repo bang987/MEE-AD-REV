@@ -81,6 +81,13 @@ MED-AD-REV/
 - `asyncio.Semaphore`로 동시 처리 제한
 - OCR 엔진별 제한: Naver 5개, Paddle 50개
 
+## 개발 서버
+
+| 서비스 | URL | 실행 명령 |
+|--------|-----|----------|
+| Backend | http://localhost:8000 | `cd src/backend && source ../../venv/bin/activate && uvicorn main:app --reload --port 8000` |
+| Frontend | http://localhost:5173 | `cd src/frontend && npm run dev -- -p 5173` |
+
 ## 주요 API 엔드포인트
 
 | 메서드 | 경로 | 설명 |

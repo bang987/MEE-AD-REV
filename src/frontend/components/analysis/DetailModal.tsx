@@ -82,6 +82,48 @@ export default function DetailModal({ result, batchId, onClose }: DetailModalPro
                   </div>
                 )}
 
+                {/* Original Image */}
+                {imageUrl && !imageError && (
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <ImageIcon className="h-5 w-5 text-blue-500" />
+                        <h3 className="text-sm font-semibold text-gray-900">
+                          원본 이미지
+                        </h3>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setImageZoom((z) => Math.max(0.5, z - 0.25))}
+                          className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+                          title="축소"
+                        >
+                          <ZoomOut className="h-4 w-4" />
+                        </button>
+                        <span className="text-xs text-gray-500 min-w-[3rem] text-center">
+                          {Math.round(imageZoom * 100)}%
+                        </span>
+                        <button
+                          onClick={() => setImageZoom((z) => Math.min(2, z + 0.25))}
+                          className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+                          title="확대"
+                        >
+                          <ZoomIn className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="bg-gray-100 border border-gray-200 rounded-lg p-2 overflow-auto max-h-80">
+                      <img
+                        src={imageUrl}
+                        alt={result.filename}
+                        className="mx-auto rounded transition-transform"
+                        style={{ transform: `scale(${imageZoom})`, transformOrigin: 'top center' }}
+                        onError={() => setImageError(true)}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {/* Violations */}
                 {analysis.violations && analysis.violations.length > 0 && (
                   <div>
@@ -136,48 +178,6 @@ export default function DetailModal({ result, batchId, onClose }: DetailModalPro
                           </div>
                         </div>
                       ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Original Image */}
-                {imageUrl && !imageError && (
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <ImageIcon className="h-5 w-5 text-blue-500" />
-                        <h3 className="text-sm font-semibold text-gray-900">
-                          원본 이미지
-                        </h3>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => setImageZoom((z) => Math.max(0.5, z - 0.25))}
-                          className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
-                          title="축소"
-                        >
-                          <ZoomOut className="h-4 w-4" />
-                        </button>
-                        <span className="text-xs text-gray-500 min-w-[3rem] text-center">
-                          {Math.round(imageZoom * 100)}%
-                        </span>
-                        <button
-                          onClick={() => setImageZoom((z) => Math.min(2, z + 0.25))}
-                          className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
-                          title="확대"
-                        >
-                          <ZoomIn className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="bg-gray-100 border border-gray-200 rounded-lg p-2 overflow-auto max-h-80">
-                      <img
-                        src={imageUrl}
-                        alt={result.filename}
-                        className="mx-auto rounded transition-transform"
-                        style={{ transform: `scale(${imageZoom})`, transformOrigin: 'top center' }}
-                        onError={() => setImageError(true)}
-                      />
                     </div>
                   </div>
                 )}
