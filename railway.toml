@@ -3,7 +3,8 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-healthcheckPath = "/health"
+healthcheckPath = "/"
 healthcheckTimeout = 300
+startCommand = "/docker-entrypoint.sh"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
