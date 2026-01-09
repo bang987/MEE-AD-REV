@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+const ADMIN_API_KEY = process.env.ADMIN_API_KEY || '';
 
 async function proxyRequest(request: NextRequest, path: string) {
   const url = `${BACKEND_URL}/api/${path}`;
@@ -12,6 +13,11 @@ async function proxyRequest(request: NextRequest, path: string) {
       headers.set(key, value);
     }
   });
+
+  // Add admin API key for admin endpoints
+  if (path.startsWith('admin') && ADMIN_API_KEY) {
+    headers.set('X-API-Key', ADMIN_API_KEY);
+  }
 
   try {
     // Handle different content types
