@@ -24,6 +24,22 @@ function getApiBaseUrl(): string {
   return process.env.NEXT_PUBLIC_API_URL || 'http://192.168.0.2:8000';
 }
 
+// 관리자 API 키 (환경변수에서 로드)
+function getAdminApiKey(): string {
+  return process.env.NEXT_PUBLIC_ADMIN_API_KEY || '';
+}
+
+// 관리자 API 헤더 생성
+function getAdminHeaders(contentType?: string): HeadersInit {
+  const headers: HeadersInit = {
+    'X-API-Key': getAdminApiKey(),
+  };
+  if (contentType) {
+    headers['Content-Type'] = contentType;
+  }
+  return headers;
+}
+
 // Batch Analysis APIs
 export async function startBatchAnalysis(
   files: File[],
@@ -78,7 +94,9 @@ export async function classifyFiles(
 
 // Admin Document APIs
 export async function getDocuments(): Promise<DocumentListResponse> {
-  const response = await fetch(`${getApiBaseUrl()}/api/admin/documents`);
+  const response = await fetch(`${getApiBaseUrl()}/api/admin/documents`, {
+    headers: getAdminHeaders(),
+  });
 
   if (!response.ok) {
     throw new Error('문서 목록 조회 실패');
@@ -93,6 +111,7 @@ export async function uploadDocuments(files: File[]): Promise<DocumentUploadResp
 
   const response = await fetch(`${getApiBaseUrl()}/api/admin/documents`, {
     method: 'POST',
+    headers: { 'X-API-Key': getAdminApiKey() },
     body: formData,
   });
 
@@ -106,7 +125,10 @@ export async function uploadDocuments(files: File[]): Promise<DocumentUploadResp
 export async function deleteDocument(filename: string): Promise<DocumentDeleteResponse> {
   const response = await fetch(
     `${getApiBaseUrl()}/api/admin/documents/${encodeURIComponent(filename)}`,
-    { method: 'DELETE' }
+    {
+      method: 'DELETE',
+      headers: getAdminHeaders(),
+    }
   );
 
   if (!response.ok) {
@@ -168,7 +190,8 @@ export async function getAnalysisHistory(
   }
 
   const response = await fetch(
-    `${getApiBaseUrl()}/api/admin/analysis-history?${searchParams}`
+    `${getApiBaseUrl()}/api/admin/analysis-history?${searchParams}`,
+    { headers: getAdminHeaders() }
   );
 
   if (!response.ok) {
@@ -211,7 +234,7 @@ export async function deleteAnalysisHistory(
     `${getApiBaseUrl()}/api/admin/analysis-history/delete`,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAdminHeaders('application/json'),
       body: JSON.stringify({ items }),
     }
   );
@@ -254,7 +277,8 @@ export async function getStatistics(
   }
 
   const response = await fetch(
-    `${getApiBaseUrl()}/api/admin/statistics?${params}`
+    `${getApiBaseUrl()}/api/admin/statistics?${params}`,
+    { headers: getAdminHeaders() }
   );
 
   if (!response.ok) {

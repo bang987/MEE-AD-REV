@@ -2,25 +2,36 @@
 FastAPI 백엔드 메인 애플리케이션
 """
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form, BackgroundTasks
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form, BackgroundTasks, Depends, Request, Security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import os
 import httpx
 import json
+import logging
 from dotenv import load_dotenv
 from pathlib import Path
 import shutil
 from datetime import datetime, timedelta
 import asyncio
 import uuid
+import secrets
 from enum import Enum
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from ad_analyzer import analyze_complete, analyze_complete_async
 from medical_keywords import keyword_db
 from paddle_ocr import perform_paddle_ocr
 from rag.vector_store import index_single_file, remove_file_from_index, get_vector_store
+
+# 로깅 설정
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class OCREngine(str, Enum):
@@ -40,6 +51,42 @@ OCR_FILE_LIMITS = {
 # .env 파일 로드
 load_dotenv()
 
+# 보안 설정
+DEBUG = os.getenv("DEBUG", "false").lower() == "true"
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", secrets.token_urlsafe(32))
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+RATE_LIMIT = os.getenv("RATE_LIMIT_PER_MINUTE", "30")
+
+# Rate Limiter 설정
+limiter = Limiter(key_func=get_remote_address)
+
+# API Key 헤더 설정
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+
+async def verify_admin_api_key(api_key: str = Security(api_key_header)) -> bool:
+    """관리자 API 키 검증"""
+    if not api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="API 키가 필요합니다",
+            headers={"WWW-Authenticate": "ApiKey"},
+        )
+    if not secrets.compare_digest(api_key, ADMIN_API_KEY):
+        raise HTTPException(
+            status_code=403,
+            detail="유효하지 않은 API 키입니다",
+        )
+    return True
+
+
+def get_safe_error_message(e: Exception, default_message: str = "요청 처리 중 오류가 발생했습니다") -> str:
+    """안전한 에러 메시지 반환 (DEBUG 모드에서만 상세 정보)"""
+    if DEBUG:
+        return f"{default_message}: {str(e)}"
+    return default_message
+
+
 # FastAPI 앱 생성
 app = FastAPI(
     title="Medical Advertisement Review API",
@@ -47,12 +94,28 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS 설정 - 모든 origin 허용 (개발 환경)
-# 프로덕션에서는 특정 도메인만 허용하도록 변경 필요
+# Rate Limiting 미들웨어 추가
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    """Rate Limit 초과 시 핸들러"""
+    return HTTPException(
+        status_code=429,
+        detail="요청 횟수가 너무 많습니다. 잠시 후 다시 시도해주세요.",
+    )
+
+
+# CORS 설정 - 환경변수에서 허용 도메인 로드
+# DEBUG 모드에서는 모든 origin 허용
+cors_origins = ["*"] if DEBUG else [origin.strip() for origin in ALLOWED_ORIGINS if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 모든 origin 허용
-    allow_credentials=False,  # credentials와 wildcard는 함께 사용 불가
+    allow_origins=cors_origins,
+    allow_credentials=False if "*" in cors_origins else True,
     allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
@@ -101,6 +164,10 @@ async def health_check():
     )
 
 
+# 파일 업로드 크기 제한
+MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10MB
+
+
 @app.post("/api/ocr", response_model=OCRResponse)
 async def process_ocr(file: UploadFile = File(...)):
     """
@@ -118,7 +185,7 @@ async def process_ocr(file: UploadFile = File(...)):
     if not NAVER_OCR_API_URL or not NAVER_OCR_SECRET_KEY:
         raise HTTPException(
             status_code=500,
-            detail="OCR API 설정이 올바르지 않습니다. .env 파일을 확인하세요.",
+            detail="OCR API 설정이 올바르지 않습니다.",
         )
 
     # 파일 확장자 검증
@@ -129,6 +196,15 @@ async def process_ocr(file: UploadFile = File(...)):
             detail="지원하지 않는 파일 형식입니다. jpg, jpeg, png 파일만 업로드 가능합니다.",
         )
 
+    # 파일 크기 검증
+    content = await file.read()
+    await file.seek(0)  # 파일 포인터 초기화
+    if len(content) > MAX_IMAGE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"파일 크기가 너무 큽니다. 최대 {MAX_IMAGE_SIZE // (1024 * 1024)}MB까지 업로드 가능합니다.",
+        )
+
     # 임시 파일 저장
     temp_file_path = (
         UPLOAD_DIR / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file.filename}"
@@ -137,7 +213,7 @@ async def process_ocr(file: UploadFile = File(...)):
     try:
         # 파일 저장
         with temp_file_path.open("wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+            buffer.write(content)
 
         # OCR 처리
         result = await perform_ocr(temp_file_path)
@@ -149,9 +225,12 @@ async def process_ocr(file: UploadFile = File(...)):
 
         return OCRResponse(**result)
 
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"OCR 처리 오류: {str(e)}")
         raise HTTPException(
-            status_code=500, detail=f"OCR 처리 중 오류가 발생했습니다: {str(e)}"
+            status_code=500, detail=get_safe_error_message(e, "OCR 처리 중 오류가 발생했습니다")
         )
 
     finally:
@@ -1147,9 +1226,9 @@ DATA_DIR.mkdir(exist_ok=True)
 
 
 @app.get("/api/admin/documents")
-async def get_documents():
+async def get_documents(_: bool = Depends(verify_admin_api_key)):
     """
-    RAG 문서 목록 조회
+    RAG 문서 목록 조회 (관리자 인증 필요)
 
     Returns:
         dict: 문서 목록
@@ -1182,9 +1261,12 @@ async def get_documents():
 
 
 @app.post("/api/admin/documents")
-async def upload_documents(files: List[UploadFile] = File(...)):
+async def upload_documents(
+    files: List[UploadFile] = File(...),
+    _: bool = Depends(verify_admin_api_key),
+):
     """
-    RAG 문서 업로드 (다중 파일)
+    RAG 문서 업로드 (다중 파일, 관리자 인증 필요)
 
     Args:
         files: 업로드할 파일 리스트 (.txt, .pdf)
@@ -1260,9 +1342,9 @@ async def upload_documents(files: List[UploadFile] = File(...)):
 
 
 @app.delete("/api/admin/documents/{filename}")
-async def delete_document(filename: str):
+async def delete_document(filename: str, _: bool = Depends(verify_admin_api_key)):
     """
-    RAG 문서 삭제
+    RAG 문서 삭제 (관리자 인증 필요)
 
     Args:
         filename: 삭제할 파일명
@@ -1332,9 +1414,10 @@ async def get_analysis_history(
     risk_level: Optional[str] = None,
     sort_by: str = "completed_at",
     sort_order: str = "desc",
+    _: bool = Depends(verify_admin_api_key),
 ):
     """
-    분석 이력 목록 조회 (페이지네이션)
+    분석 이력 목록 조회 (페이지네이션, 관리자 인증 필요)
 
     Args:
         page: 페이지 번호 (기본값: 1)
@@ -1430,9 +1513,12 @@ class DeleteHistoryRequest(BaseModel):
 
 
 @app.post("/api/admin/analysis-history/delete")
-async def delete_analysis_history(request: DeleteHistoryRequest):
+async def delete_analysis_history(
+    request: DeleteHistoryRequest,
+    _: bool = Depends(verify_admin_api_key),
+):
     """
-    분석 이력 삭제
+    분석 이력 삭제 (관리자 인증 필요)
 
     Args:
         request: 삭제할 항목 리스트 (batch_id와 filename으로 식별)
@@ -1514,9 +1600,10 @@ async def delete_analysis_history(request: DeleteHistoryRequest):
 async def get_statistics(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    _: bool = Depends(verify_admin_api_key),
 ):
     """
-    분석 통계 조회
+    분석 통계 조회 (관리자 인증 필요)
 
     Args:
         start_date: 시작 날짜 (ISO format: 2026-01-01)
