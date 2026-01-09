@@ -21,8 +21,12 @@ trap cleanup SIGTERM SIGINT
 # Start Backend (FastAPI with uvicorn)
 cd /app/backend
 echo "Starting backend on port $BACKEND_PORT..."
-uvicorn main:app --host 0.0.0.0 --port $BACKEND_PORT &
+echo "Testing Python imports..."
+python -c "import main; print('Backend imports OK')" 2>&1 || echo "Backend import failed!"
+echo "Starting uvicorn..."
+uvicorn main:app --host 0.0.0.0 --port $BACKEND_PORT 2>&1 &
 BACKEND_PID=$!
+echo "Backend PID: $BACKEND_PID"
 
 # Wait for backend to be ready (max 60 seconds)
 echo "Waiting for backend to be ready..."
