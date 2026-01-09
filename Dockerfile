@@ -14,10 +14,7 @@ RUN npm ci
 # Copy frontend source
 COPY src/frontend/ ./
 
-# Set API URL for build (backend runs on localhost:8000 in same container)
-ENV NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
-
-# Build with standalone output
+# Build with standalone output (API uses Next.js rewrites to proxy to backend)
 RUN npm run build
 
 # ============================================

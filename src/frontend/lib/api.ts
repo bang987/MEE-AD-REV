@@ -13,15 +13,16 @@ import type {
   StatisticsResponse,
 } from '@/types';
 
-// 브라우저에서 접근한 호스트를 기반으로 API URL 결정
+// API Base URL - 상대 경로 사용 (Next.js rewrites로 백엔드 프록시)
 function getApiBaseUrl(): string {
+  // 프로덕션: 상대 경로 사용 (Next.js rewrites가 백엔드로 프록시)
+  // 개발: 환경변수로 직접 백엔드 URL 지정 가능
   if (typeof window !== 'undefined') {
-    // 클라이언트: 현재 접속한 호스트의 8000 포트 사용
-    const hostname = window.location.hostname;
-    return `http://${hostname}:8000`;
+    // 클라이언트: 상대 경로 사용
+    return '';
   }
-  // 서버사이드: 환경변수 또는 기본값
-  return process.env.NEXT_PUBLIC_API_URL || 'http://192.168.0.2:8000';
+  // 서버사이드: 환경변수 또는 빈 문자열
+  return process.env.NEXT_PUBLIC_API_BASE_URL || '';
 }
 
 // 관리자 API 키 (환경변수에서 로드)
@@ -140,7 +141,7 @@ export async function deleteDocument(filename: string): Promise<DocumentDeleteRe
 
 // Batch Image URL
 export function getBatchImageUrl(batchId: string, filename: string): string {
-  return `${getApiBaseUrl()}/api/batch-image/${encodeURIComponent(batchId)}/${encodeURIComponent(filename)}`;
+  return `/api/batch-image/${encodeURIComponent(batchId)}/${encodeURIComponent(filename)}`;
 }
 
 // Utility functions
