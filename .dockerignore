@@ -1,0 +1,53 @@
+# Git
+.git
+.gitignore
+
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+*.egg-info/
+.eggs/
+
+# Node.js
+**/node_modules/
+**/.next/
+**/out/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment files (use Railway env vars instead)
+.env
+.env.*
+!.env.example
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Local data (will be created at runtime)
+src/backend/uploads/
+src/backend/data/chroma_db/
+
+# Claude
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files
+tests/
+**/test_*.py
+**/*_test.py
+
+# Build artifacts
+dist/
+build/
