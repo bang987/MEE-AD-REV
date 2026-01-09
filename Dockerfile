@@ -40,7 +40,8 @@ WORKDIR /app
 
 # Copy backend requirements and install Python dependencies
 COPY src/backend/requirements.txt ./backend/
-RUN pip install --no-cache-dir -r backend/requirements.txt
+RUN pip install --no-cache-dir setuptools && \
+    pip install --no-cache-dir -r backend/requirements.txt
 
 # Pre-download PaddleOCR models (to avoid download on first request)
 RUN python -c "from paddleocr import PaddleOCR; PaddleOCR(use_angle_cls=True, lang='korean', show_log=False)"
