@@ -1,183 +1,64 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Play, RotateCcw, FolderOpen } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Message from '@/components/ui/Message';
-import { getCategory } from '@/components/ui/Badge';
 import AnalysisCard from '@/components/analysis/AnalysisCard';
 import FileProgressList from '@/components/analysis/FileProgressList';
 import ResultsTable from '@/components/analysis/ResultsTable';
 import DetailModal from '@/components/analysis/DetailModal';
-import { startBatchAnalysis, getBatchStatus, classifyFiles } from '@/lib/api';
-import { OCREngine, OCR_FILE_LIMITS, BatchFileResult, BatchStatus, FileClassification, FileStatus } from '@/types';
+import { useAnalysisStore } from '@/stores/analysisStore';
+import { OCR_FILE_LIMITS } from '@/types';
 
 export default function HomePage() {
-  // File selection
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-
-  // Analysis options
-  const [ocrEngine, setOcrEngine] = useState<OCREngine>('naver');
-  const [useAiAnalysis, setUseAiAnalysis] = useState(true);
-  const [useRagMode, setUseRagMode] = useState(true);
-
-  // Analysis state
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [, setBatchId] = useState<string | null>(null);
-  const [fileStatuses, setFileStatuses] = useState<FileStatus[]>([]);
-
-  // Results
-  const [results, setResults] = useState<BatchFileResult[]>([]);
-  const [selectedResult, setSelectedResult] = useState<BatchFileResult | null>(null);
-  const [lastBatchId, setLastBatchId] = useState<string | null>(null);
-  const [isClassifying, setIsClassifying] = useState(false);
-
-  // Messages
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  // Zustand store
+  const {
+    selectedFiles,
+    ocrEngine,
+    useAiAnalysis,
+    useRagMode,
+    isAnalyzing,
+    fileStatuses,
+    results,
+    selectedResult,
+    lastBatchId,
+    isClassifying,
+    message,
+    addFiles,
+    clearFiles,
+    removeFile,
+    setOcrEngine,
+    setUseAiAnalysis,
+    setUseRagMode,
+    startAnalysis,
+    stopPolling,
+    setSelectedResult,
+    classifyResults,
+    setMessage,
+    reset,
+  } = useAnalysisStore();
 
   // 파생 상태: OCR 엔진별 파일 제한
   const fileLimit = useMemo(() => OCR_FILE_LIMITS[ocrEngine], [ocrEngine]);
   const isOverLimit = useMemo(() => selectedFiles.length > fileLimit, [selectedFiles.length, fileLimit]);
 
-  const handleFilesSelected = useCallback((files: File[]) => {
-    setSelectedFiles((prev) => {
-      const existingNames = new Set(prev.map((f) => f.name));
-      const newFiles = files.filter((f) => !existingNames.has(f.name));
-      return [...prev, ...newFiles]; // 제한 없이 추가 (초과 시 경고만 표시)
-    });
-  }, []);
-
-  const handleClearFiles = useCallback(() => {
-    setSelectedFiles([]);
-  }, []);
-
-  const handleRemoveFile = useCallback((index: number) => {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
-  }, []);
-
-  const handleStartAnalysis = async () => {
-    if (selectedFiles.length === 0) {
-      setMessage({ type: 'error', text: '분석할 파일을 선택해주세요.' });
-      return;
-    }
-
-    setIsAnalyzing(true);
-    setResults([]);
-    setMessage(null);
-
-    // 즉시 업로드 중 상태 표시 (사용자 피드백)
-    setFileStatuses(
-      selectedFiles.map((file) => ({
-        filename: file.name,
-        status: 'uploading' as const,
-        progress: 0,
-      }))
-    );
-
-    try {
-      const response = await startBatchAnalysis(
-        selectedFiles,
-        ocrEngine,
-        useAiAnalysis,
-        useRagMode
-      );
-
-      if (response.batch_id) {
-        setBatchId(response.batch_id);
-        setLastBatchId(response.batch_id);
-        startPolling(response.batch_id);
-      } else {
-        throw new Error('배치 ID를 받지 못했습니다.');
-      }
-    } catch (error) {
-      setIsAnalyzing(false);
-      setMessage({
-        type: 'error',
-        text: error instanceof Error ? error.message : '분석 시작에 실패했습니다.',
-      });
-    }
-  };
-
-  const startPolling = (id: string) => {
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-    }
-
-    pollIntervalRef.current = setInterval(async () => {
-      try {
-        const status: BatchStatus = await getBatchStatus(id);
-
-        // 파일별 상태 업데이트
-        if (status.file_statuses) {
-          setFileStatuses(status.file_statuses);
-        }
-
-        if (status.status === 'completed' || status.status === 'failed') {
-          if (pollIntervalRef.current) {
-            clearInterval(pollIntervalRef.current);
-            pollIntervalRef.current = null;
-          }
-
-          setIsAnalyzing(false);
-          setBatchId(null);
-
-          if (status.results) {
-            setResults(status.results);
-          }
-
-          if (status.status === 'completed') {
-            const errorCount = status.results?.filter((r) => !r.success).length || 0;
-            const successCount = (status.results?.length || 0) - errorCount;
-            setMessage({
-              type: 'success',
-              text: `분석 완료: ${successCount}개 성공, ${errorCount}개 실패`,
-            });
-          } else {
-            setMessage({
-              type: 'error',
-              text: status.errors?.[0] || '분석 중 오류가 발생했습니다.',
-            });
-          }
-        }
-      } catch (error) {
-        console.error('Polling error:', error);
-      }
-    }, 1000);
-  };
-
-  const handleReset = () => {
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-      pollIntervalRef.current = null;
-    }
-
-    setSelectedFiles([]);
-    setIsAnalyzing(false);
-    setBatchId(null);
-    setLastBatchId(null);
-    setFileStatuses([]);
-    setResults([]);
-    setMessage(null);
-  };
-
-  // Handle file classification
+  // Handle file classification with confirmation
   const handleClassify = async () => {
     if (!lastBatchId || results.length === 0) {
       setMessage({ type: 'error', text: '분류할 결과가 없습니다.' });
       return;
     }
 
-    // 분류될 파일 수 계산 (판정과 1:1 매칭 - 6개 카테고리)
+    // 분류될 파일 수 계산
     const classifiableResults = results.filter((r) => r.success && r.analysis_result);
     const counts: Record<string, number> = {
-      unnecessary: 0,    // 불필요 (N/A)
-      passed: 0,         // 통과 (SAFE)
-      caution: 0,        // 주의 (LOW)
-      suggest_edit: 0,   // 수정제안 (MEDIUM)
-      recommend_edit: 0, // 수정권고 (HIGH)
-      rejected: 0,       // 게재불가 (CRITICAL)
+      unnecessary: 0,
+      passed: 0,
+      caution: 0,
+      suggest_edit: 0,
+      recommend_edit: 0,
+      rejected: 0,
     };
 
     classifiableResults.forEach((r) => {
@@ -192,7 +73,6 @@ export default function HomePage() {
       }
     });
 
-    // 확인 다이얼로그 표시
     const confirmMessage = `파일을 판정 결과에 따라 분류하시겠습니까?\n\n` +
       `• 불필요 (unnecessary): ${counts.unnecessary}개\n` +
       `• 통과 (passed): ${counts.passed}개\n` +
@@ -206,51 +86,15 @@ export default function HomePage() {
       return;
     }
 
-    setIsClassifying(true);
-    setMessage(null);
-
-    try {
-      const classifications: FileClassification[] = results
-        .filter((r) => r.success && r.analysis_result)
-        .map((r) => ({
-          filename: r.filename,
-          category: getCategory(r.analysis_result!.risk_level),
-        }));
-
-      if (classifications.length === 0) {
-        setMessage({ type: 'error', text: '분류 가능한 파일이 없습니다.' });
-        setIsClassifying(false);
-        return;
-      }
-
-      const response = await classifyFiles(lastBatchId, classifications);
-
-      if (response.success) {
-        setMessage({
-          type: 'success',
-          text: `파일 분류 완료: ${response.success_count}개 성공, ${response.failed_count}개 실패`,
-        });
-      } else {
-        throw new Error('분류 실패');
-      }
-    } catch (error) {
-      setMessage({
-        type: 'error',
-        text: error instanceof Error ? error.message : '파일 분류에 실패했습니다.',
-      });
-    } finally {
-      setIsClassifying(false);
-    }
+    await classifyResults();
   };
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-      }
+      stopPolling();
     };
-  }, []);
+  }, [stopPolling]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -270,9 +114,9 @@ export default function HomePage() {
         <div className="lg:col-span-1 space-y-6">
           <AnalysisCard
             selectedFiles={selectedFiles}
-            onFilesSelected={handleFilesSelected}
-            onClearFiles={handleClearFiles}
-            onRemoveFile={handleRemoveFile}
+            onFilesSelected={addFiles}
+            onClearFiles={clearFiles}
+            onRemoveFile={removeFile}
             ocrEngine={ocrEngine}
             setOcrEngine={setOcrEngine}
             useAiAnalysis={useAiAnalysis}
@@ -286,7 +130,7 @@ export default function HomePage() {
           <div className="flex gap-3">
             <Button
               variant="primary"
-              onClick={handleStartAnalysis}
+              onClick={startAnalysis}
               disabled={isAnalyzing || selectedFiles.length === 0 || isOverLimit}
               isLoading={isAnalyzing}
               className="flex-1"
@@ -296,7 +140,7 @@ export default function HomePage() {
             </Button>
             <Button
               variant="secondary"
-              onClick={handleReset}
+              onClick={reset}
               disabled={isAnalyzing}
             >
               <RotateCcw className="h-4 w-4" />
